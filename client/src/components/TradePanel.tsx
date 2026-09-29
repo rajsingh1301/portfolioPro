@@ -5,7 +5,13 @@ import { errorMessage } from '../api/client'
 import { fetchQuote, placeOrder, searchStocks } from '../api/trading'
 import { formatUsd } from '../lib/money'
 import { PriceChart } from './PriceChart'
-import type { OrderSide, Quote, StockSearchResult } from '../types/trading'
+import type { OrderSide, OrderType, PlaceOrderRequest, Quote, StockSearchResult } from '../types/trading'
+
+const ORDER_TYPES: { value: OrderType; label: string }[] = [
+  { value: 'MARKET', label: 'Market' },
+  { value: 'LIMIT', label: 'Limit' },
+  { value: 'STOP_LOSS', label: 'Stop-loss' },
+]
 
 interface TradePanelProps {
   /** Called after an order reaches the server, whatever its outcome, so the page can refresh. */
@@ -17,6 +23,9 @@ export function TradePanel({ onOrderPlaced }: TradePanelProps) {
   const [results, setResults] = useState<StockSearchResult[]>([])
   const [quote, setQuote] = useState<Quote | null>(null)
   const [side, setSide] = useState<OrderSide>('BUY')
+  const [orderType, setOrderType] = useState<OrderType>('MARKET')
+  const [price, setPrice] = useState('')
+  const [attachStopLoss, setAttachStopLoss] = useState(false)
   const [quantity, setQuantity] = useState('1')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,11 +73,27 @@ export function TradePanel({ onOrderPlaced }: TradePanelProps) {
       setError('Quantity must be a whole number of shares')
       return
     }
+    const request: PlaceOrderRequest = { symbol: quote.symbol, side, type: orderType, quantity: shares }
+    if (orderType !== 'MARKET') {
+      // Kept as the text the user typed: money is never parsed into a number (rule 1).
+      if (!/^\d+(\.\d{1,4})?$/.test(price) || Number(price) <= 0) {
+        setError('Enter a price greater than zero, with at most 4 decimal places')
+        return
+      }
+      if (orderType === 'LIMIT') {
+        request.limitPrice = price
+      } else {
+        request.triggerPrice = price
+      }
+    }
+    if (side === 'BUY' && orderType !== 'STOP_LOSS' && attachStopLoss) {
+      request.attachStopLoss = true
+    }
     setBusy(true)
     setError(null)
     setNotice(null)
     try {
-      const order = await placeOrder({ symbol: quote.symbol, side, type: 'MARKET', quantity: shares })
+      const order = await placeOrder(request)
       setNotice(`${order.side} ${order.quantity} ${order.symbol}: ${order.status.toLowerCase()}`)
     } catch (failure) {
       // A rejected order is a 422 with the reason in the message, and is on the order list too.
@@ -130,16 +155,38 @@ export function TradePanel({ onOrderPlaced }: TradePanelProps) {
           <PriceChart symbol={quote.symbol} />
 
           <div className="mt-4 flex flex-wrap items-end gap-3">
+            <div className="inline-flex overflow-hidden rounded-md border border-slate-300" role="group" aria-label="Order type">
+              {ORDER_TYPES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={orderType === option.value}
+                  onClick={() => {
+                    setOrderType(option.value)
+                    // A stop-loss only ever sells.
+                    if (option.value === 'STOP_LOSS') {
+                      setSide('SELL')
+                    }
+                  }}
+                  className={`px-3 py-2 text-sm font-medium ${
+                    orderType === option.value ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <div className="inline-flex overflow-hidden rounded-md border border-slate-300" role="group" aria-label="Side">
               {(['BUY', 'SELL'] as const).map((option) => (
                 <button
                   key={option}
                   type="button"
                   aria-pressed={side === option}
+                  disabled={orderType === 'STOP_LOSS' && option === 'BUY'}
                   onClick={() => setSide(option)}
                   className={`px-4 py-2 text-sm font-medium ${
                     side === option ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
+                  } disabled:opacity-40`}
                 >
                   {option === 'BUY' ? 'Buy' : 'Sell'}
                 </button>
@@ -160,14 +207,50 @@ export function TradePanel({ onOrderPlaced }: TradePanelProps) {
                 className="mt-1 w-28 rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
               />
             </div>
+            {orderType !== 'MARKET' && (
+              <div>
+                <label htmlFor="price" className="block text-xs font-medium text-slate-500">
+                  {orderType === 'LIMIT' ? 'Limit price' : 'Trigger price'}
+                </label>
+                <input
+                  id="price"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={price}
+                  onChange={(event) => setPrice(event.target.value)}
+                  className="mt-1 w-32 rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                />
+              </div>
+            )}
             <button
               type="submit"
               disabled={busy}
               className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
             >
-              Place market order
+              {orderType === 'MARKET' ? 'Place market order' : `Place ${orderType === 'LIMIT' ? 'limit' : 'stop-loss'} order`}
             </button>
           </div>
+          {orderType === 'LIMIT' && (
+            <p className="mt-2 text-xs text-slate-500">
+              A {side === 'BUY' ? 'buy fills at or below' : 'sell fills at or above'} this price, at the price
+              then available. It waits as pending until then.
+            </p>
+          )}
+          {orderType === 'STOP_LOSS' && (
+            <p className="mt-2 text-xs text-slate-500">
+              Sells once the price falls to this trigger, at the price then available, which can be lower.
+            </p>
+          )}
+          {side === 'BUY' && orderType !== 'STOP_LOSS' && (
+            <label className="mt-3 flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={attachStopLoss}
+                onChange={(event) => setAttachStopLoss(event.target.checked)}
+              />
+              Also place a stop-loss below the fill price (your default percentage)
+            </label>
+          )}
         </form>
       )}
 

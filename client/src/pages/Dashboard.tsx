@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { fetchAllocation, fetchOrders, fetchPortfolio, fetchTrades } from '../api/trading'
+import { cancelOrder, fetchAllocation, fetchOrders, fetchPortfolio, fetchTrades } from '../api/trading'
 import { OrderHistory } from '../components/OrderHistory'
 import { PortfolioOverview } from '../components/PortfolioOverview'
 import { TradePanel } from '../components/TradePanel'
@@ -50,6 +50,24 @@ export function Dashboard() {
     }
   }, [load, apply])
 
+  const hasPending = orders.some((order) => order.status === 'PENDING')
+
+  // The scheduler fills pending orders on its own, so while any are waiting the page
+  // re-reads now and then rather than showing a stale "pending" for an order that filled.
+  useEffect(() => {
+    if (!hasPending) {
+      return
+    }
+    const timer = window.setInterval(() => void reload().catch(() => undefined), 15000)
+    return () => window.clearInterval(timer)
+  }, [hasPending, reload])
+
+  async function handleCancel(id: number) {
+    // A 422 here means the order filled a moment before, which the reload below then shows.
+    await cancelOrder(id).catch(() => undefined)
+    await reload().catch(() => undefined)
+  }
+
   if (user === null) {
     return null
   }
@@ -87,7 +105,7 @@ export function Dashboard() {
             <PortfolioOverview portfolio={portfolio} allocation={allocation} />
           )}
           <TradePanel onOrderPlaced={() => void reload().catch(() => undefined)} />
-          <OrderHistory orders={orders} trades={trades} />
+          <OrderHistory orders={orders} trades={trades} onCancel={(id) => void handleCancel(id)} />
         </div>
       </main>
     </div>

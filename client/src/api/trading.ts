@@ -26,6 +26,11 @@ export async function placeOrder(request: PlaceOrderRequest): Promise<Order> {
   return data
 }
 
+export async function cancelOrder(id: number): Promise<Order> {
+  const { data } = await api.delete<Order>(`/orders/${id}`)
+  return data
+}
+
 export async function fetchOrders(): Promise<Order[]> {
   const { data } = await api.get<Order[]>('/orders')
   return data

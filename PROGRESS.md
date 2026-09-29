@@ -18,7 +18,7 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 | 3 | Trading (market orders) | ✅ Done |
 | 4 | Portfolio | ✅ Done |
 | 5 | Charts | ✅ Done (volume bars deferred) |
-| 6 | Pending orders (limit, stop-loss) | ⬜ Not started |
+| 6 | Pending orders (limit, stop-loss) | ✅ Done |
 | 7 | Watchlist | ⬜ Not started |
 | 8 | Analysis (indicators, fundamentals) | ⬜ Not started |
 | 9 | Risk settings UI | ⬜ Not started |
@@ -271,6 +271,44 @@ live API returns.
 - `5Y` uses weekly bars and `1D` uses 5-minute bars, to keep every range to a few hundred points.
 - Times are requested in UTC so intraday bars need no exchange-timezone conversion. Daily and weekly bars are placed at midnight UTC of their date.
 
+## Slice 6 — Pending orders ✅
+
+**Goal:** a user can place a limit or stop-loss order that waits, fills by itself when the
+price is reached, and can be cancelled while it waits.
+
+**Backend**
+
+- [x] `V4__pending_orders.sql`: `limit_price`, `trigger_price`, `attach_stop_loss` on `orders`
+- [x] `POST /api/orders` takes `type` `MARKET | LIMIT | STOP_LOSS`, with `limitPrice` / `triggerPrice` as strings. A limit or stop-loss is risk-checked, then saved `PENDING`; mismatched fields are `400`
+- [x] `DELETE /api/orders/{id}` cancels a pending order: `404` for one that is not the caller's, `422` for one already settled
+- [x] `PendingOrderScheduler` (every 10s, `app.orders.poll-interval-ms`): reads the quote cache, and for each triggered order calls `TradingService.fillPending`
+- [x] A buy limit fills at or below its limit, a sell limit at or above it, a stop-loss once the price falls to its trigger. **Fills happen at the price then available**, not at the limit or trigger, so a stop-loss that gaps fills lower
+- [x] Risk is **re-run at fill time** against the user's cash and shares now; an order that no longer passes becomes `REJECTED` instead of filling
+- [x] Shares promised to a pending sell cannot be promised to another sell, limit, stop-loss or market
+- [x] `attachStopLoss` on a buy creates a `STOP_LOSS` sell for the same shares at the fill price less the user's `default_stop_loss_pct`
+
+**Frontend**
+
+- [x] Order type (Market / Limit / Stop-loss), price field, and the attach-stop-loss option in the trade panel; a stop-loss forces Sell
+- [x] Order history shows the type, the limit or stop price while pending, and a Cancel button; the page re-reads every 15s while any order is pending
+
+**Tests:** 66 in total (13 new, in `PendingOrderApiTest`). The scheduler is driven by calling `runOnce()` directly, not by waiting on a timer, and the timer is switched off in tests so it cannot race them. Checked to fail when broken:
+removing the "still pending" guard fails the deterministic test and the race test; removing the row lock fails the fill-versus-cancel race test 3 runs out of 3; and counting an order against its own shares fails 4 tests.
+
+**Verified** in a browser against real MySQL and real Finnhub, with the real timer: a limit at `$100` stayed pending and cancelled cleanly; a limit at `$1,000` filled by itself within the poll interval at `$338.40`, with no page reload; a market buy with the option ticked created a pending stop-loss at `$321.48` (5% below `$338.40`).
+
+**Bugs the tests found while building it**
+
+- A new order is saved `PENDING` before its risk check, so its own quantity was counted as "already promised" and a sell of every share held was refused. It is now excluded from its own check (found by two existing tests).
+- A limit price came back as `95.00` from the request but `95.0000` when read back from MySQL. Prices are now held at the column's scale when the order is created.
+
+**Decisions made building it**
+
+- **Every write locks the user row first**: placing, filling and cancelling. That is what makes a fill and a cancel safe against each other. Nothing may read before the lock, because MySQL fixes a transaction's snapshot at its first plain `SELECT` and would show a stale status.
+- **No cash reservation for pending buys**, per the plan: cash is re-checked at fill time. So a user can place more pending buys than they can afford, and the ones that cannot be paid for are rejected when they trigger.
+- A marketable limit (already at or past its price) is not filled at placement; it waits for the next scheduler pass, up to about 10s.
+- Cancelling and filling are both refused politely when they lose a race: a cancel that loses gets `422`, and a fill that loses does nothing.
+
 ## Decisions made
 
 | Date | Decision | Note |
@@ -302,7 +340,10 @@ live API returns.
 
 ## Known gaps / deliberate deferrals
 
-- **Only the buy race is tested.** Concurrent sells of the same shares are covered by the same lock but have no test of their own.
+- **Only the buy race and the fill/cancel race are tested.** Concurrent sells of the same shares are covered by the same lock but have no test of their own.
+- **The scheduler assumes one running instance.** Two would both try to fill an order; the lock and the pending check keep that safe (the loser does nothing), but they would double the Finnhub calls.
+- **Every symbol with a pending order costs a Finnhub call each time its 15s quote expires**, so many distinct pending symbols can approach the 60/min limit.
+- **Pending buys do not reserve cash** (see slice 6).
 - **No frontend tests at all.** `tsc` and ESLint are the only checks on the client.
 - **`stocks.exchange` and `stocks.sector` are always null.** Finnhub's search payload
   carries neither; filling them needs a `/stock/profile2` call per symbol. Left for

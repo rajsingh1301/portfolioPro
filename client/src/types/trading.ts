@@ -14,13 +14,20 @@ export interface Quote {
 }
 
 export type OrderSide = 'BUY' | 'SELL'
+export type OrderType = 'MARKET' | 'LIMIT' | 'STOP_LOSS'
 
-/** Mirrors com.portfoliopro.trading.dto.PlaceOrderRequest. */
+/** Mirrors com.portfoliopro.trading.dto.PlaceOrderRequest. Prices are strings, never numbers. */
 export interface PlaceOrderRequest {
   symbol: string
   side: OrderSide
-  type: 'MARKET'
+  type: OrderType
   quantity: number
+  /** Required for LIMIT. */
+  limitPrice?: string
+  /** Required for STOP_LOSS, which is always a sell. */
+  triggerPrice?: string
+  /** On a buy: also place a stop-loss below the fill price once it fills. */
+  attachStopLoss?: boolean
 }
 
 /** Mirrors com.portfoliopro.trading.dto.OrderResponse. */
@@ -28,8 +35,11 @@ export interface Order {
   id: number
   symbol: string
   side: OrderSide
-  type: string
+  type: OrderType
   quantity: number
+  limitPrice?: string
+  triggerPrice?: string
+  attachStopLoss: boolean
   status: 'PENDING' | 'FILLED' | 'PARTIAL' | 'CANCELLED' | 'REJECTED'
   rejectReason: string | null
   createdAt: string

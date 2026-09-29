@@ -8,7 +8,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,5 +40,10 @@ public class TradingController {
     @GetMapping("/api/trades")
     public List<TradeResponse> trades(@AuthenticationPrincipal AuthPrincipal principal) {
         return tradingService.trades(principal.userId());
+    }
+
+    @DeleteMapping("/api/orders/{id}")
+    public OrderResponse cancel(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable Long id) {
+        return tradingService.cancel(principal.userId(), id);
     }
 }

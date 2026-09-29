@@ -214,8 +214,8 @@ Each slice is built and verified end-to-end (backend + UI) before the next begin
 2. **Market data** — Finnhub client, quote endpoint, Caffeine cache, search
 3. **Trading (market orders only)** — the atomic transaction, risk checks, order list
 4. **Portfolio** — holdings, unrealized/realized P&L, dashboard
-5. **Charts** — candles endpoint + Lightweight Charts ← *current*
-6. **Pending orders** — limit, stop-loss, the scheduler
+5. **Charts** — candles endpoint + Lightweight Charts
+6. **Pending orders** — limit, stop-loss, the scheduler ← *current*
 7. **Watchlist**
 8. **Analysis** — ta4j indicators, fundamentals card
 9. **Risk settings UI**
