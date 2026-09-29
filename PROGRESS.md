@@ -19,7 +19,7 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 | 4 | Portfolio | ✅ Done |
 | 5 | Charts | ✅ Done (volume bars deferred) |
 | 6 | Pending orders (limit, stop-loss) | ✅ Done |
-| 7 | Watchlist | ⬜ Not started |
+| 7 | Watchlist | ✅ Done |
 | 8 | Analysis (indicators, fundamentals) | ⬜ Not started |
 | 9 | Risk settings UI | ⬜ Not started |
 
@@ -309,6 +309,36 @@ removing the "still pending" guard fails the deterministic test and the race tes
 - A marketable limit (already at or past its price) is not filled at placement; it waits for the next scheduler pass, up to about 10s.
 - Cancelling and filling are both refused politely when they lose a race: a cancel that loses gets `422`, and a fill that loses does nothing.
 
+## Slice 7 — Watchlist ✅
+
+**Goal:** a user can follow stocks and see their prices and day's change at a glance.
+
+**Backend**
+
+- [x] `V5__watchlist.sql`: `watchlist`, keyed on `(user_id, symbol)`
+- [x] `GET /api/watchlist`: followed symbols in the order added, each with name, price, change and % (fields the API cannot fill are absent)
+- [x] `POST /api/watchlist`: `201` when added, `200` when already followed (idempotent); an unknown symbol is `404` and is not stored
+- [x] `DELETE /api/watchlist/{symbol}`: `204`, or `404` if it is not on the caller's list
+- [x] A cap of 25 symbols per user (`app.watchlist.max-size`), `422 WATCHLIST_FULL` beyond it; re-adding a symbol already on a full list is still `200`
+- [x] A quote that fails leaves that symbol unpriced instead of failing the list
+
+**Frontend**
+
+- [x] `WatchlistCard`: price, change and %, click a row to load it into the trade panel, Remove; re-read every 30s while anything is followed
+- [x] A Watch / Unwatch button beside the quote in the trade panel
+
+**Tests:** 77 in total (11 new, in `WatchlistApiTest`), including that ten concurrent adds at 20 of 25 let exactly five in. **Removing the row lock fails that test 3 runs out of 3.**
+
+**Verified** in a browser against real MySQL and Finnhub: two stocks followed, still there after a reload, clicking a row loads it into the trade panel with the button reading Unwatch, then removed. A cold list of 12 real symbols took **1.5s** and a warm one 9ms.
+
+**Decisions made building it**
+
+- The cap is 25 because every followed symbol can cost a Finnhub call each time its 15s quote expires, and the 60/min limit is shared by every user.
+- Quotes for the list are fetched **in parallel** on virtual threads; one after another, a cold list of 25 would take far too long.
+- The add locks the user row first, as every other write does, so the size check and the insert cannot be split by a concurrent add.
+- **`MarketService.quote()` lost its `@Transactional`.** It never touched the database, and under parallel fetches each call would have held a pooled connection for the length of a Finnhub call.
+- No foreign key from `watchlist.symbol` to `stocks`, for the same reason orders have none.
+
 ## Decisions made
 
 | Date | Decision | Note |
@@ -344,6 +374,7 @@ removing the "still pending" guard fails the deterministic test and the race tes
 - **The scheduler assumes one running instance.** Two would both try to fill an order; the lock and the pending check keep that safe (the loser does nothing), but they would double the Finnhub calls.
 - **Every symbol with a pending order costs a Finnhub call each time its 15s quote expires**, so many distinct pending symbols can approach the 60/min limit.
 - **Pending buys do not reserve cash** (see slice 6).
+- **The portfolio fetches its quotes one after another.** The watchlist does it in parallel; a portfolio with many holdings and a cold cache would be slow, and could use the same approach.
 - **No frontend tests at all.** `tsc` and ESLint are the only checks on the client.
 - **`stocks.exchange` and `stocks.sector` are always null.** Finnhub's search payload
   carries neither; filling them needs a `/stock/profile2` call per symbol. Left for

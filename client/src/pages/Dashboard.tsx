@@ -1,12 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { cancelOrder, fetchAllocation, fetchOrders, fetchPortfolio, fetchTrades } from '../api/trading'
+import {
+  addToWatchlist,
+  cancelOrder,
+  fetchAllocation,
+  fetchOrders,
+  fetchPortfolio,
+  fetchTrades,
+  fetchWatchlist,
+  removeFromWatchlist,
+} from '../api/trading'
+import { errorMessage } from '../api/client'
 import { OrderHistory } from '../components/OrderHistory'
 import { PortfolioOverview } from '../components/PortfolioOverview'
 import { TradePanel } from '../components/TradePanel'
+import { WatchlistCard } from '../components/WatchlistCard'
 import { useAuth } from '../context/useAuth'
 import { formatUsd } from '../lib/money'
-import type { AllocationSlice, Order, Portfolio, Trade } from '../types/trading'
+import type { AllocationSlice, Order, Portfolio, Trade, WatchlistItem } from '../types/trading'
 
 export function Dashboard() {
   const { user, logout, refreshUser } = useAuth()
@@ -14,16 +25,20 @@ export function Dashboard() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
   const [allocation, setAllocation] = useState<AllocationSlice[]>([])
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
+  const [watchError, setWatchError] = useState<string | null>(null)
+  const [requested, setRequested] = useState<{ symbol: string } | null>(null)
 
   // Each section loads on its own: one failing endpoint must not blank the others.
   const load = useCallback(async () => {
-    const [nextOrders, nextTrades, nextPortfolio, nextAllocation] = await Promise.allSettled([
+    const [nextOrders, nextTrades, nextPortfolio, nextAllocation, nextWatchlist] = await Promise.allSettled([
       fetchOrders(),
       fetchTrades(),
       fetchPortfolio(),
       fetchAllocation(),
+      fetchWatchlist(),
     ])
-    return { nextOrders, nextTrades, nextPortfolio, nextAllocation }
+    return { nextOrders, nextTrades, nextPortfolio, nextAllocation, nextWatchlist }
   }, [])
 
   const apply = useCallback((result: Awaited<ReturnType<typeof load>>) => {
@@ -31,6 +46,7 @@ export function Dashboard() {
     if (result.nextTrades.status === 'fulfilled') setTrades(result.nextTrades.value)
     if (result.nextPortfolio.status === 'fulfilled') setPortfolio(result.nextPortfolio.value)
     if (result.nextAllocation.status === 'fulfilled') setAllocation(result.nextAllocation.value)
+    if (result.nextWatchlist.status === 'fulfilled') setWatchlist(result.nextWatchlist.value)
   }, [])
 
   const reload = useCallback(async () => {
@@ -61,6 +77,34 @@ export function Dashboard() {
     const timer = window.setInterval(() => void reload().catch(() => undefined), 15000)
     return () => window.clearInterval(timer)
   }, [hasPending, reload])
+
+  // Watchlist prices drift on their own, so they are re-read now and then while any are followed.
+  const followsAny = watchlist.length > 0
+  useEffect(() => {
+    if (!followsAny) {
+      return
+    }
+    const timer = window.setInterval(() => {
+      fetchWatchlist()
+        .then(setWatchlist)
+        .catch(() => undefined)
+    }, 30000)
+    return () => window.clearInterval(timer)
+  }, [followsAny])
+
+  async function toggleWatch(symbol: string, watched: boolean) {
+    setWatchError(null)
+    try {
+      if (watched) {
+        await removeFromWatchlist(symbol)
+      } else {
+        await addToWatchlist(symbol)
+      }
+      setWatchlist(await fetchWatchlist())
+    } catch (failure) {
+      setWatchError(errorMessage(failure))
+    }
+  }
 
   async function handleCancel(id: number) {
     // A 422 here means the order filled a moment before, which the reload below then shows.
@@ -104,7 +148,18 @@ export function Dashboard() {
           ) : (
             <PortfolioOverview portfolio={portfolio} allocation={allocation} />
           )}
-          <TradePanel onOrderPlaced={() => void reload().catch(() => undefined)} />
+          <WatchlistCard
+            items={watchlist}
+            error={watchError}
+            onSelect={(symbol) => setRequested({ symbol })}
+            onRemove={(symbol) => void toggleWatch(symbol, true)}
+          />
+          <TradePanel
+            onOrderPlaced={() => void reload().catch(() => undefined)}
+            watchedSymbols={watchlist.map((item) => item.symbol)}
+            onToggleWatch={(symbol, watched) => void toggleWatch(symbol, watched)}
+            requested={requested}
+          />
           <OrderHistory orders={orders} trades={trades} onCancel={(id) => void handleCancel(id)} />
         </div>
       </main>

@@ -54,7 +54,10 @@ public class MarketService {
         return fetchQuote(normalizeSymbol(symbol)).current();
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Not transactional: it only calls the provider. A transaction here would hold a
+     * pooled database connection for the length of every Finnhub call.
+     */
     public QuoteResponse quote(String symbol) {
         String normalized = normalizeSymbol(symbol);
         FinnhubQuote quote = fetchQuote(normalized);

@@ -215,8 +215,8 @@ Each slice is built and verified end-to-end (backend + UI) before the next begin
 3. **Trading (market orders only)** — the atomic transaction, risk checks, order list
 4. **Portfolio** — holdings, unrealized/realized P&L, dashboard
 5. **Charts** — candles endpoint + Lightweight Charts
-6. **Pending orders** — limit, stop-loss, the scheduler ← *current*
-7. **Watchlist**
+6. **Pending orders** — limit, stop-loss, the scheduler
+7. **Watchlist** ← *current*
 8. **Analysis** — ta4j indicators, fundamentals card
 9. **Risk settings UI**
 

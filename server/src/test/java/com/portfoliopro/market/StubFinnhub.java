@@ -80,6 +80,12 @@ public final class StubFinnhub {
         return List.copyOf(paths);
     }
 
+    /** Zeroes the request counters but keeps the configured responses. */
+    public void resetCounts() {
+        requestCount.set(0);
+        paths.clear();
+    }
+
     public void reset() {
         requestCount.set(0);
         paths.clear();

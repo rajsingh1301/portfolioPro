@@ -99,3 +99,12 @@ export interface Candle {
   close: string
   volume: number
 }
+
+/** Mirrors com.portfoliopro.portfolio.dto.WatchlistItem. Fields the API could not fill are absent. */
+export interface WatchlistItem {
+  symbol: string
+  name?: string
+  price?: string
+  change?: string
+  percentChange?: string
+}

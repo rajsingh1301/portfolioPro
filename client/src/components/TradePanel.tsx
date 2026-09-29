@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { errorMessage } from '../api/client'
@@ -16,9 +16,17 @@ const ORDER_TYPES: { value: OrderType; label: string }[] = [
 interface TradePanelProps {
   /** Called after an order reaches the server, whatever its outcome, so the page can refresh. */
   onOrderPlaced: () => void
+  /** Symbols already on the watchlist, so the button can say Watch or Unwatch. */
+  watchedSymbols: string[]
+  onToggleWatch: (symbol: string, watched: boolean) => void
+  /**
+   * Asks the panel to load a symbol, as when one is clicked on the watchlist. An object
+   * rather than a string so choosing the same symbol twice is a new request.
+   */
+  requested: { symbol: string } | null
 }
 
-export function TradePanel({ onOrderPlaced }: TradePanelProps) {
+export function TradePanel({ onOrderPlaced, watchedSymbols, onToggleWatch, requested }: TradePanelProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<StockSearchResult[]>([])
   const [quote, setQuote] = useState<Quote | null>(null)
@@ -30,6 +38,30 @@ export function TradePanel({ onOrderPlaced }: TradePanelProps) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (requested === null) {
+      return
+    }
+    let active = true
+    fetchQuote(requested.symbol)
+      .then((loaded) => {
+        if (active) {
+          setQuote(loaded)
+          setResults([])
+          setError(null)
+          setNotice(null)
+        }
+      })
+      .catch((failure: unknown) => {
+        if (active) {
+          setError(errorMessage(failure))
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [requested])
 
   async function handleSearch(event: FormEvent) {
     event.preventDefault()
@@ -149,7 +181,16 @@ export function TradePanel({ onOrderPlaced }: TradePanelProps) {
 
       {quote !== null && (
         <form onSubmit={handleOrder} className="mt-5 border-t border-slate-100 pt-5">
-          <p className="text-sm text-slate-500">{quote.symbol} last price</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500">{quote.symbol} last price</p>
+            <button
+              type="button"
+              onClick={() => onToggleWatch(quote.symbol, watchedSymbols.includes(quote.symbol))}
+              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {watchedSymbols.includes(quote.symbol) ? 'Unwatch' : 'Watch'}
+            </button>
+          </div>
           <p className="text-2xl font-semibold text-slate-900">{formatUsd(quote.price)}</p>
 
           <PriceChart symbol={quote.symbol} />

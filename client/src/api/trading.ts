@@ -9,6 +9,7 @@ import type {
   Quote,
   StockSearchResult,
   Trade,
+  WatchlistItem,
 } from '../types/trading'
 
 export async function searchStocks(query: string): Promise<StockSearchResult[]> {
@@ -54,4 +55,18 @@ export async function fetchAllocation(): Promise<AllocationSlice[]> {
 export async function fetchCandles(symbol: string, range: CandleRange): Promise<Candle[]> {
   const { data } = await api.get<Candle[]>(`/stocks/${encodeURIComponent(symbol)}/candles`, { params: { range } })
   return data
+}
+
+export async function fetchWatchlist(): Promise<WatchlistItem[]> {
+  const { data } = await api.get<WatchlistItem[]>('/watchlist')
+  return data
+}
+
+export async function addToWatchlist(symbol: string): Promise<WatchlistItem> {
+  const { data } = await api.post<WatchlistItem>('/watchlist', { symbol })
+  return data
+}
+
+export async function removeFromWatchlist(symbol: string): Promise<void> {
+  await api.delete(`/watchlist/${encodeURIComponent(symbol)}`)
 }
