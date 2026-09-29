@@ -108,7 +108,10 @@ export function TradePanel({ onOrderPlaced }: TradePanelProps) {
               <button
                 type="button"
                 onClick={() => void choose(result.symbol)}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"
+                // A click during a pending request would land after it and leave a quote
+                // that does not belong to the results being shown.
+                disabled={busy}
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
               >
                 <span className="font-medium text-slate-900">{result.symbol}</span>
                 <span className="text-slate-500">{result.name}</span>

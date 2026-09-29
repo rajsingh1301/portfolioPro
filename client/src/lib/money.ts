@@ -14,3 +14,12 @@ export function formatUsd(amount: string): string {
     maximumFractionDigits: 2,
   })
 }
+
+/** Tailwind colour for a signed amount string: green for gains, red for losses, grey for zero. */
+export function pnlColor(amount: string | undefined): string {
+  const parsed = Number(amount)
+  if (amount === undefined || !Number.isFinite(parsed) || parsed === 0) {
+    return 'text-slate-700'
+  }
+  return parsed > 0 ? 'text-green-700' : 'text-red-600'
+}

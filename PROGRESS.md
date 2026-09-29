@@ -16,7 +16,7 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 | 1 | Auth | ✅ Done |
 | 2 | Market data + cache | ✅ Done (search box and quote live in the trade panel) |
 | 3 | Trading (market orders) | ✅ Done |
-| 4 | Portfolio | ⬜ Not started |
+| 4 | Portfolio | ✅ Done |
 | 5 | Charts | ⬜ Not started |
 | 6 | Pending orders (limit, stop-loss) | ⬜ Not started |
 | 7 | Watchlist | ⬜ Not started |
@@ -203,6 +203,34 @@ went from `100000` to `98984.80`; a `SELL 99` was refused `422 not enough shares
 - `OrderSide` lives in `common`, because `risk` needs it and nothing may depend on `trading`.
 - `DELETE /api/orders/{id}` and limit/trigger price columns are left for slice 6; nothing can be `PENDING` yet.
 - No opening `DEPOSIT` ledger row is written at signup, so the ledger does not yet reconcile to the starting `$100,000`.
+
+## Slice 4 — Portfolio ✅
+
+**Goal:** a user can see what they hold, what it is worth now, and how much they have
+made or lost.
+
+**Backend**
+
+- [x] `GET /api/portfolio`: cash, invested value, total value, unrealized and realized P&L, and each open holding with price, market value and unrealized P&L (amount and %)
+- [x] `GET /api/portfolio/allocation`: stocks largest first, then cash, each with value and percent
+- [x] `PortfolioService`: cash and holdings read together in one read-only transaction; prices applied afterwards from the quote cache, so no upstream call happens inside it
+- [x] A quote that cannot be fetched leaves that holding unpriced and valued at cost, instead of failing the request
+- [x] Fully sold positions are hidden from the list, but their realized P&L is still in the total
+
+**Frontend**
+
+- [x] `PortfolioOverview`: summary, holdings table and allocation bars, refreshed after every order
+- [x] Result buttons are disabled while a request is pending, so a click cannot leave a quote that does not match the results shown
+
+**Tests:** 44 in total (6 new): valuation and unrealized P&L, a loss and a closed position, allocation with two stocks and cash, the unpriced fallback, and per-user scoping. `StubFinnhub` gained per-symbol responses.
+
+**Verified** in headless Chromium against the running backend and real Finnhub: buying AAPL through the UI produced total value `$100,000.00` = cash `$98,308.00` + invested `$1,692.00` (5 × `$338.40`), with matching allocation of `1.69%` / `98.31%`.
+
+**Decisions made building it**
+
+- Null fields are omitted from the JSON, so the client types mark `price` and `unrealizedPnl` optional rather than nullable.
+- Allocation uses the same valuation as the portfolio (unpriced holdings at cost), so the two endpoints always agree.
+- A large portfolio costs one cached quote per symbol; there is no per-user throttle (see the existing gap on the 60/min limit).
 
 ## Decisions made
 

@@ -212,8 +212,8 @@ Each slice is built and verified end-to-end (backend + UI) before the next begin
 
 1. **Auth** — signup, login, JWT, protected route, `$100,000` on signup
 2. **Market data** — Finnhub client, quote endpoint, Caffeine cache, search
-3. **Trading (market orders only)** — the atomic transaction, risk checks, order list ← *current*
-4. **Portfolio** — holdings, unrealized/realized P&L, dashboard
+3. **Trading (market orders only)** — the atomic transaction, risk checks, order list
+4. **Portfolio** — holdings, unrealized/realized P&L, dashboard ← *current*
 5. **Charts** — candles endpoint + Lightweight Charts
 6. **Pending orders** — limit, stop-loss, the scheduler
 7. **Watchlist**

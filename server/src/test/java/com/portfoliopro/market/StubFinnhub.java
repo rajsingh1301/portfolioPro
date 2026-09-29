@@ -7,6 +7,8 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -21,6 +23,8 @@ public final class StubFinnhub {
     private final AtomicInteger requestCount = new AtomicInteger();
     private final List<String> paths = new CopyOnWriteArrayList<>();
 
+    private final Map<String, String> bodyBySymbol = new ConcurrentHashMap<>();
+
     private volatile int status = 200;
     private volatile String body = "{}";
 
@@ -34,7 +38,16 @@ public final class StubFinnhub {
         server.createContext("/", exchange -> {
             stub.requestCount.incrementAndGet();
             stub.paths.add(exchange.getRequestURI().toString());
-            byte[] payload = stub.body.getBytes(StandardCharsets.UTF_8);
+            String query = exchange.getRequestURI().getQuery();
+            String body = stub.body;
+            if (query != null) {
+                for (var entry : stub.bodyBySymbol.entrySet()) {
+                    if (query.contains("symbol=" + entry.getKey())) {
+                        body = entry.getValue();
+                    }
+                }
+            }
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(stub.status, payload.length);
             try (OutputStream out = exchange.getResponseBody()) {
@@ -54,6 +67,11 @@ public final class StubFinnhub {
         this.body = body;
     }
 
+    /** Overrides the body for one symbol's requests; the status still applies to all. */
+    public void respondForSymbol(String symbol, String body) {
+        bodyBySymbol.put(symbol, body);
+    }
+
     public int requestCount() {
         return requestCount.get();
     }
@@ -65,6 +83,7 @@ public final class StubFinnhub {
     public void reset() {
         requestCount.set(0);
         paths.clear();
+        bodyBySymbol.clear();
         status = 200;
         body = "{}";
     }

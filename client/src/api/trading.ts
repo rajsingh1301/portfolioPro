@@ -1,5 +1,13 @@
 import { api } from './client'
-import type { Order, PlaceOrderRequest, Quote, StockSearchResult, Trade } from '../types/trading'
+import type {
+  AllocationSlice,
+  Order,
+  PlaceOrderRequest,
+  Portfolio,
+  Quote,
+  StockSearchResult,
+  Trade,
+} from '../types/trading'
 
 export async function searchStocks(query: string): Promise<StockSearchResult[]> {
   const { data } = await api.get<StockSearchResult[]>('/stocks/search', { params: { q: query } })
@@ -23,5 +31,15 @@ export async function fetchOrders(): Promise<Order[]> {
 
 export async function fetchTrades(): Promise<Trade[]> {
   const { data } = await api.get<Trade[]>('/trades')
+  return data
+}
+
+export async function fetchPortfolio(): Promise<Portfolio> {
+  const { data } = await api.get<Portfolio>('/portfolio')
+  return data
+}
+
+export async function fetchAllocation(): Promise<AllocationSlice[]> {
+  const { data } = await api.get<AllocationSlice[]>('/portfolio/allocation')
   return data
 }

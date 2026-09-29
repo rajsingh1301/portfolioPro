@@ -45,3 +45,34 @@ export interface Trade {
   price: string
   executedAt: string
 }
+
+/** Mirrors com.portfoliopro.portfolio.dto.HoldingResponse. Null fields are omitted by the API. */
+export interface Holding {
+  symbol: string
+  quantity: number
+  avgPrice: string
+  /** Absent when the quote could not be fetched; marketValue is then the cost. */
+  price?: string
+  marketValue: string
+  unrealizedPnl?: string
+  unrealizedPnlPercent?: string
+  realizedPnl: string
+}
+
+/** Mirrors com.portfoliopro.portfolio.dto.PortfolioResponse. */
+export interface Portfolio {
+  cash: string
+  holdingsValue: string
+  totalValue: string
+  unrealizedPnl: string
+  realizedPnl: string
+  holdings: Holding[]
+}
+
+/** Mirrors com.portfoliopro.portfolio.dto.AllocationSlice. `symbol` is absent for cash. */
+export interface AllocationSlice {
+  symbol?: string
+  label: string
+  value: string
+  percent: string
+}
