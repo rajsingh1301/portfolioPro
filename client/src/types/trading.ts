@@ -76,3 +76,16 @@ export interface AllocationSlice {
   value: string
   percent: string
 }
+
+export const CANDLE_RANGES = ['1D', '1W', '1M', '6M', '1Y', '5Y'] as const
+export type CandleRange = (typeof CANDLE_RANGES)[number]
+
+/** Mirrors com.portfoliopro.market.dto.CandleResponse. `time` is UTC epoch seconds. */
+export interface Candle {
+  time: number
+  open: string
+  high: string
+  low: string
+  close: string
+  volume: number
+}

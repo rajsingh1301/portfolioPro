@@ -1,6 +1,7 @@
 package com.portfoliopro.market;
 
 import com.portfoliopro.common.exception.NotFoundException;
+import com.portfoliopro.market.dto.CandleResponse;
 import com.portfoliopro.market.dto.QuoteResponse;
 import com.portfoliopro.market.dto.StockSearchResult;
 import org.springframework.stereotype.Service;
@@ -20,10 +21,13 @@ public class MarketService {
     private static final int SCALE = 2;
 
     private final FinnhubClient finnhubClient;
+    private final TwelveDataClient twelveDataClient;
     private final StockRepository stockRepository;
 
-    public MarketService(FinnhubClient finnhubClient, StockRepository stockRepository) {
+    public MarketService(
+            FinnhubClient finnhubClient, TwelveDataClient twelveDataClient, StockRepository stockRepository) {
         this.finnhubClient = finnhubClient;
+        this.twelveDataClient = twelveDataClient;
         this.stockRepository = stockRepository;
     }
 
@@ -73,6 +77,21 @@ public class MarketService {
             throw new NotFoundException("Unknown symbol: " + normalized);
         }
         return quote;
+    }
+
+    /** Not transactional: it only calls the provider, and nothing here touches the database. */
+    public List<CandleResponse> candles(String symbol, String rangeLabel) {
+        CandleRange range = CandleRange.fromLabel(rangeLabel)
+                .orElseThrow(() -> new NotFoundException("Unknown range: " + rangeLabel));
+        return twelveDataClient.candles(normalizeSymbol(symbol), range).stream()
+                .map(candle -> new CandleResponse(
+                        candle.time().getEpochSecond(),
+                        money(candle.open()),
+                        money(candle.high()),
+                        money(candle.low()),
+                        money(candle.close()),
+                        candle.volume()))
+                .toList();
     }
 
     private void remember(List<StockSearchResult> results) {

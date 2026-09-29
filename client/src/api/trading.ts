@@ -1,6 +1,8 @@
 import { api } from './client'
 import type {
   AllocationSlice,
+  Candle,
+  CandleRange,
   Order,
   PlaceOrderRequest,
   Portfolio,
@@ -41,5 +43,10 @@ export async function fetchPortfolio(): Promise<Portfolio> {
 
 export async function fetchAllocation(): Promise<AllocationSlice[]> {
   const { data } = await api.get<AllocationSlice[]>('/portfolio/allocation')
+  return data
+}
+
+export async function fetchCandles(symbol: string, range: CandleRange): Promise<Candle[]> {
+  const { data } = await api.get<Candle[]>(`/stocks/${encodeURIComponent(symbol)}/candles`, { params: { range } })
   return data
 }

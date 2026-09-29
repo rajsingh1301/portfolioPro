@@ -20,7 +20,7 @@ is still to do, see [PROGRESS.md](PROGRESS.md).
 | Backend | Java 17+, Spring Boot (Maven) | `BigDecimal`, declarative transactions, mature security |
 | Database | MySQL 8 (InnoDB) | Row-level locking + ACID, needed for the order transaction |
 | Auth | Spring Security + JWT, BCrypt | Stateless; no server-side session store |
-| Market data | **Finnhub** | Free tier covers quotes, candles and fundamentals |
+| Market data | **Finnhub** (quotes, search, fundamentals) + **Twelve Data** (candles) | Finnhub's candle endpoint is paid-only, so chart history comes from Twelve Data's free plan |
 | Currency | **USD**, `$100,000` starting balance | Finnhub's free tier is US equities; see §7 |
 | Indicators | ta4j | SMA/EMA/RSI/MACD/Bollinger without hand-rolling maths |
 | Price cache | Spring Cache + Caffeine | Finnhub rate limit is ~60 calls/min; the cache is what makes the app survive it |
@@ -58,7 +58,7 @@ speak DTOs.
 | Module | Owns |
 |---|---|
 | `auth` | Signup, login, JWT issue/verify, current user |
-| `market` | Stock search, quotes, candles, the Finnhub client, price cache |
+| `market` | Stock search, quotes, candles, the Finnhub and Twelve Data clients, caches |
 | `trading` | Orders, trades, execution engine, the pending-order scheduler |
 | `portfolio` | Holdings, P&L, allocation, watchlist |
 | `risk` | Pre-trade checks and per-user risk settings |
@@ -213,8 +213,8 @@ Each slice is built and verified end-to-end (backend + UI) before the next begin
 1. **Auth** — signup, login, JWT, protected route, `$100,000` on signup
 2. **Market data** — Finnhub client, quote endpoint, Caffeine cache, search
 3. **Trading (market orders only)** — the atomic transaction, risk checks, order list
-4. **Portfolio** — holdings, unrealized/realized P&L, dashboard ← *current*
-5. **Charts** — candles endpoint + Lightweight Charts
+4. **Portfolio** — holdings, unrealized/realized P&L, dashboard
+5. **Charts** — candles endpoint + Lightweight Charts ← *current*
 6. **Pending orders** — limit, stop-loss, the scheduler
 7. **Watchlist**
 8. **Analysis** — ta4j indicators, fundamentals card

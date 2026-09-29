@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import { errorMessage } from '../api/client'
 import { fetchQuote, placeOrder, searchStocks } from '../api/trading'
 import { formatUsd } from '../lib/money'
+import { PriceChart } from './PriceChart'
 import type { OrderSide, Quote, StockSearchResult } from '../types/trading'
 
 interface TradePanelProps {
@@ -125,6 +126,8 @@ export function TradePanel({ onOrderPlaced }: TradePanelProps) {
         <form onSubmit={handleOrder} className="mt-5 border-t border-slate-100 pt-5">
           <p className="text-sm text-slate-500">{quote.symbol} last price</p>
           <p className="text-2xl font-semibold text-slate-900">{formatUsd(quote.price)}</p>
+
+          <PriceChart symbol={quote.symbol} />
 
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <div className="inline-flex overflow-hidden rounded-md border border-slate-300" role="group" aria-label="Side">

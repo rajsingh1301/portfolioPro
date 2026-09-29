@@ -17,7 +17,7 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 | 2 | Market data + cache | ✅ Done (search box and quote live in the trade panel) |
 | 3 | Trading (market orders) | ✅ Done |
 | 4 | Portfolio | ✅ Done |
-| 5 | Charts | ⬜ Not started |
+| 5 | Charts | ✅ Done (volume bars deferred) |
 | 6 | Pending orders (limit, stop-loss) | ⬜ Not started |
 | 7 | Watchlist | ⬜ Not started |
 | 8 | Analysis (indicators, fundamentals) | ⬜ Not started |
@@ -232,12 +232,51 @@ made or lost.
 - Allocation uses the same valuation as the portfolio (unpriced holdings at cost), so the two endpoints always agree.
 - A large portfolio costs one cached quote per symbol; there is no per-user throttle (see the existing gap on the 60/min limit).
 
+## Slice 5 — Charts ✅
+
+**Goal:** a user viewing a stock sees its price history as candlesticks over a chosen range.
+
+**The provider changed.** Finnhub's `/stock/candle` returns `403 You don't have access to
+this resource` on the free tier (checked against the real key), so candles come from
+**Twelve Data** (free plan: about 8 calls/minute, 800/day). Finnhub still serves quotes and search.
+
+**Backend**
+
+- [x] `GET /api/stocks/{symbol}/candles?range=1D|1W|1M|6M|1Y|5Y` (default `1M`), oldest first, prices as strings, time as UTC epoch seconds
+- [x] `TwelveDataClient` behind a 10-minute Caffeine cache; failures are not cached
+- [x] A closed set of ranges (`CandleRange`), so a caller cannot spend the small quota on arbitrary provider requests
+- [x] Provider errors mapped: unknown symbol `404`, rate limit / refused / unreadable / no key `503`; malformed bars dropped
+- [x] `TWELVEDATA_API_KEY` is optional: blank, the app runs and only the candles endpoint answers `503`
+
+**Frontend**
+
+- [x] `PriceChart` (Lightweight Charts candlesticks, range buttons, loading and error states) inside the trade panel
+
+**Tests:** 53 in total (9 new, in `CandleApiTest`), against a stub of the provider. Includes the request the provider receives, that repeat calls are cached, that a failure is not, and that ordering is fixed up (removing the sort makes the daily test fail).
+
+**Verified** against the real Twelve Data API with a real key: `1M` returned 22 daily bars,
+`1D` 80 five-minute bars, `5Y` 260 weekly bars, all `200`, and the last daily close (`338.40`)
+matches Finnhub's live quote. The chart renders real AAPL history in headless Chromium, and a
+rate-limit error shows its message. The response shape in `TwelveDataClient` matches what the
+live API returns.
+
+**Still to do**
+
+- [ ] Volume bars under the candles
+- [ ] `1D` returns 80 five-minute bars, which spans a little over one session (Friday's tail plus Monday); trim to the latest session if it matters
+
+**Decisions made building it**
+
+- Candles are cached, not stored: the `price_candles` table is not created. Nothing needs history older than the cache yet; slice 8's indicators can read the same cached series. Revisit if the daily quota bites.
+- `5Y` uses weekly bars and `1D` uses 5-minute bars, to keep every range to a few hundred points.
+- Times are requested in UTC so intraday bars need no exchange-timezone conversion. Daily and weekly bars are placed at midnight UTC of their date.
+
 ## Decisions made
 
 | Date | Decision | Note |
 |---|---|---|
 | 2026-09-28 | TypeScript on the frontend | Money crosses the wire as strings; types prevent silent numeric coercion |
-| 2026-09-28 | Finnhub as the market data provider | Free tier covers quotes, candles and fundamentals |
+| 2026-09-28 | Finnhub as the market data provider | Free tier covers quotes and search. **Candles turned out to be paid-only** (see slice 5), so the original reason was only partly true |
 | 2026-09-28 | Currency is USD, starting balance `$100,000` | Follows from Finnhub's free tier being US equities |
 | 2026-09-28 | Build feature by feature, each slice verified end-to-end | Avoids a large untested backend with no UI behind it |
 | 2026-09-29 | **Flyway migrations**, not `schema.sql` | Each slice adds a `V<n>__*.sql`; `ddl-auto=validate` makes Hibernate check the entities still match |
@@ -258,8 +297,8 @@ made or lost.
 - **Indian equities?** The original design used `₹1,00,000`. Finnhub's free tier does
   not cover NSE/BSE, so the app is currently USD. Revisit only if Indian symbols are
   a hard requirement — it would mean changing the data provider.
-- **Candle storage:** cache Finnhub candles in `price_candles`, or proxy them live
-  every time? Matters from slice 5, and the indicators in slice 8 need stored candles.
+- **Candle storage:** decided for now to cache, not store (see slice 5). Revisit if slice 8's
+  indicators or the daily quota need more history than the cache holds.
 
 ## Known gaps / deliberate deferrals
 

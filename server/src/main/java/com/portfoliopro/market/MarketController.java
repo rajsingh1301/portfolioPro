@@ -1,5 +1,6 @@
 package com.portfoliopro.market;
 
+import com.portfoliopro.market.dto.CandleResponse;
 import com.portfoliopro.market.dto.QuoteResponse;
 import com.portfoliopro.market.dto.StockSearchResult;
 import jakarta.validation.constraints.NotBlank;
@@ -44,5 +45,13 @@ public class MarketController {
     public QuoteResponse quote(
             @PathVariable @Pattern(regexp = "[A-Za-z0-9.\\-]{1,20}", message = "must be a ticker symbol") String symbol) {
         return marketService.quote(symbol);
+    }
+
+    @GetMapping("/{symbol}/candles")
+    public List<CandleResponse> candles(
+            @PathVariable @Pattern(regexp = "[A-Za-z0-9.\\-]{1,20}", message = "must be a ticker symbol") String symbol,
+            @RequestParam(defaultValue = "1M")
+                    @Pattern(regexp = CandleRange.PATTERN, message = "must be one of 1D, 1W, 1M, 6M, 1Y, 5Y") String range) {
+        return marketService.candles(symbol, range);
     }
 }
