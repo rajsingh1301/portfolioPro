@@ -27,6 +27,22 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 
 ---
 
+## Running the tests
+
+```bash
+cd server && ./mvnw test          # 22 tests, ~25s, needs Docker running
+```
+
+Tests run against a real **MySQL 8.4 in Testcontainers**, not H2: the migrations are
+MySQL-specific (`ENGINE=InnoDB`) and slice 3 needs real row locking, neither of which
+an in-memory database exercises. One container is shared by the whole run. The
+`portfoliopro` MySQL user has no privileges outside its own schema, so a local test
+database was not an option anyway.
+
+Finnhub is never called from a test — `StubFinnhub` serves canned JSON on a random
+local port and counts the requests it receives, which is how the cache assertions
+prove upstream calls were actually prevented.
+
 ## Running it locally
 
 ```bash
@@ -95,6 +111,14 @@ token and `200` with a good one; CORS preflight passes from `:5173` and is refus
 another origin; the database holds `100000.0000`, a BCrypt hash and one defaulted
 `risk_settings` row, with UTC timestamps.
 
+**Covered by tests** (`AuthApiTest`, 7 tests): the funded account and its risk-settings
+row, email lowercasing, duplicate email as `422`, per-field validation, a wrong password
+and an unknown email returning the same code so registered emails cannot be enumerated,
+and `/me` against no token, a tampered token and a good one. One test documents an
+asymmetry rather than a nicety: `SignupRequest` carries `@Email`, which rejects a
+padded address before `AuthService` can trim it, while `LoginRequest` carries only
+`@NotBlank` and accepts one.
+
 **Not verified:** the rendered UI in a real browser — no browser was driven. `tsc` and
 ESLint are clean and the production build succeeds, but the pages have not been
 clicked through.
@@ -135,9 +159,16 @@ is cached too (0.35s then 4ms), so a bad symbol cannot be used to burn the rate 
 The `stocks` table holds the searched symbols with UTC timestamps, and re-running the
 same search does not duplicate rows.
 
-**Not verified:** no UI exists for this slice yet, and there are still no automated
-tests. Behaviour when Finnhub is actually down or rate-limiting was not exercised — the
-`503` path is reasoned, not observed.
+**Covered by tests** (`MarketApiTest`, 14 tests): the quote shape and string prices,
+decimal precision past what a double holds, an unknown symbol as `404`, the cache
+proven by counting stub requests (5 calls → 1 upstream, and 2 after the TTL expires),
+an unknown symbol cached too, `503` on both an upstream error and an unreadable body,
+search filtering and persistence, idempotent repeat searches, `401` before any upstream
+call, and every parameter rejection.
+
+**Not verified:** no UI exists for this slice yet. Real Finnhub rate-limiting (HTTP
+`429`) is still unobserved — the stub covers a `500` and a malformed body, which take
+the same code path, but the provider's actual throttling behaviour has not been seen.
 
 ## Decisions made
 
@@ -155,7 +186,9 @@ tests. Behaviour when Finnhub is actually down or rate-limiting was not exercise
 | 2026-09-29 | The cache sits on `FinnhubClient`, not `MarketService` | `@Cacheable` does not cache thrown exceptions, so caching above the 404 check would let an unknown symbol hit Finnhub on every request |
 | 2026-09-29 | Upstream failure returns `503`, a code ARCHITECTURE §10 does not list | Nothing is wrong with this service and retrying is reasonable, which is neither a `500` nor a `422` |
 | 2026-09-29 | Search results are written to `stocks`; the quote path is not | Search is the only call that returns a company name, and by the time a user can order a symbol they have searched it |
-| 2026-09-29 | Finnhub JSON parsed with `USE_BIG_DECIMAL_FOR_FLOATS` | Rule 1 starts at the process boundary — the default `double` would turn `197.33` into `197.32999999999998` |
+| 2026-09-29 | Finnhub JSON parsed with `USE_BIG_DECIMAL_FOR_FLOATS` | Rule 1 starts at the process boundary. **The reason first written here, and in the slice 2 commit message, was wrong:** the default does *not* turn `197.33` into `197.32999999999998` — Jackson's `DoubleNode.decimalValue()` goes through `Double.toString`, which round-trips ~15 significant digits exactly. The setting only bites past that (`9007199254740993.005` → `…994.00` without it, `…993.01` with it). Kept as defence in depth, not as the thing that saves ordinary prices |
+| 2026-09-29 | Testcontainers MySQL 8.4 for tests, not H2 | The migrations are MySQL-specific and slice 3 needs real row locking; the `portfoliopro` user also cannot create a second schema locally |
+| 2026-09-29 | `api.version=1.44` pinned for Surefire | Testcontainers' bundled docker-java negotiates API 1.32, which Docker Engine 29+ refuses outright; it is a floor, so any newer daemon still works |
 | 2026-09-29 | No `@Validated` on `MarketController` | Spring 6.1+ validates constrained controller parameters itself; the annotation replaces that with an AOP proxy whose raw `ConstraintViolationException` surfaced as a `500` |
 
 ## Open questions
@@ -168,9 +201,10 @@ tests. Behaviour when Finnhub is actually down or rate-limiting was not exercise
 
 ## Known gaps / deliberate deferrals
 
-- **No tests yet**, and slice 1 shipped without any. Slice 3 (the order transaction) is
-  where they become genuinely necessary — concurrency and rollback cannot be verified
-  by clicking. Worth adding a `@SpringBootTest` slice for auth at the same time.
+- **No concurrency test yet.** The suite covers auth and market behaviour, but nothing
+  yet exercises two requests racing for the same cash — that arrives with the slice 3
+  order transaction, which is what rules 2 and 3 exist for.
+- **No frontend tests at all.** `tsc` and ESLint are the only checks on the client.
 - **`stocks.exchange` and `stocks.sector` are always null.** Finnhub's search payload
   carries neither; filling them needs a `/stock/profile2` call per symbol. Left for
   whenever a screen actually shows them — slice 8 needs profile data anyway.
