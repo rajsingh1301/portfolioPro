@@ -41,14 +41,19 @@ public class MarketService {
         return results;
     }
 
+    /**
+     * The last price as a decimal, for callers that trade on it. Deliberately not
+     * transactional: the trading service fetches this before it takes a row lock, so
+     * an upstream call is never made while a user's cash is locked.
+     */
+    public BigDecimal currentPrice(String symbol) {
+        return fetchQuote(normalizeSymbol(symbol)).current();
+    }
+
     @Transactional(readOnly = true)
     public QuoteResponse quote(String symbol) {
         String normalized = normalizeSymbol(symbol);
-        FinnhubQuote quote = finnhubClient.quote(normalized);
-        if (quote.isEmpty()) {
-            // Finnhub returns zeros rather than a 404 for a symbol it does not carry.
-            throw new NotFoundException("Unknown symbol: " + normalized);
-        }
+        FinnhubQuote quote = fetchQuote(normalized);
         return new QuoteResponse(
                 normalized,
                 money(quote.current()),
@@ -59,6 +64,15 @@ public class MarketService {
                 money(quote.open()),
                 money(quote.previousClose()),
                 quote.timestamp());
+    }
+
+    private FinnhubQuote fetchQuote(String normalized) {
+        FinnhubQuote quote = finnhubClient.quote(normalized);
+        if (quote.isEmpty()) {
+            // Finnhub returns zeros rather than a 404 for a symbol it does not carry.
+            throw new NotFoundException("Unknown symbol: " + normalized);
+        }
+        return quote;
     }
 
     private void remember(List<StockSearchResult> results) {
@@ -80,7 +94,7 @@ public class MarketService {
         return value == null ? null : value.setScale(SCALE, RoundingMode.HALF_UP).toPlainString();
     }
 
-    private static String normalizeSymbol(String symbol) {
+    public static String normalizeSymbol(String symbol) {
         return symbol.trim().toUpperCase(Locale.ROOT);
     }
 }

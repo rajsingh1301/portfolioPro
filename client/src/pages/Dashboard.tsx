@@ -1,8 +1,39 @@
+import { useCallback, useEffect, useState } from 'react'
+
+import { fetchOrders, fetchTrades } from '../api/trading'
+import { OrderHistory } from '../components/OrderHistory'
+import { TradePanel } from '../components/TradePanel'
 import { useAuth } from '../context/useAuth'
 import { formatUsd } from '../lib/money'
+import type { Order, Trade } from '../types/trading'
 
 export function Dashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
+  const [orders, setOrders] = useState<Order[]>([])
+  const [trades, setTrades] = useState<Trade[]>([])
+
+  const reload = useCallback(async () => {
+    const [nextOrders, nextTrades] = await Promise.all([fetchOrders(), fetchTrades(), refreshUser()])
+    setOrders(nextOrders)
+    setTrades(nextTrades)
+  }, [refreshUser])
+
+  useEffect(() => {
+    let active = true
+    Promise.all([fetchOrders(), fetchTrades()])
+      .then(([nextOrders, nextTrades]) => {
+        if (active) {
+          setOrders(nextOrders)
+          setTrades(nextTrades)
+        }
+      })
+      .catch(() => {
+        // Lists stay empty; a 401 is already handled by the interceptor.
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   if (user === null) {
     return null
@@ -36,9 +67,10 @@ export function Dashboard() {
           </p>
         </div>
 
-        <p className="mt-6 text-sm text-slate-500">
-          Market data and trading arrive in the next slices.
-        </p>
+        <div className="mt-6 space-y-6">
+          <TradePanel onOrderPlaced={() => void reload().catch(() => undefined)} />
+          <OrderHistory orders={orders} trades={trades} />
+        </div>
       </main>
     </div>
   )

@@ -10,6 +10,8 @@ export interface AuthContextValue {
   signup: (credentials: Credentials) => Promise<void>
   login: (credentials: Credentials) => Promise<void>
   logout: () => void
+  /** Re-reads the user, e.g. for the cash balance after a trade. */
+  refreshUser: () => Promise<void>
 }
 
 /** Lives apart from the provider so the provider file only exports a component. */

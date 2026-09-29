@@ -14,8 +14,8 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 |---|---|---|
 | 0 | Project setup | ✅ Done |
 | 1 | Auth | ✅ Done |
-| 2 | Market data + cache | 🟡 Backend done, frontend pending |
-| 3 | Trading (market orders) | ⬜ Not started |
+| 2 | Market data + cache | ✅ Done (search box and quote live in the trade panel) |
+| 3 | Trading (market orders) | ✅ Done |
 | 4 | Portfolio | ⬜ Not started |
 | 5 | Charts | ⬜ Not started |
 | 6 | Pending orders (limit, stop-loss) | ⬜ Not started |
@@ -125,10 +125,10 @@ clicked through.
 
 ---
 
-## Slice 2 — Market data + cache 🟡
+## Slice 2 — Market data + cache ✅
 
 **Goal:** an authenticated user can search symbols and see a live quote, with Finnhub
-called at most once per symbol per TTL. — backend met; the UI is not built yet.
+called at most once per symbol per TTL.
 
 **Backend**
 
@@ -143,9 +143,7 @@ called at most once per symbol per TTL. — backend met; the UI is not built yet
 
 **Frontend**
 
-- [ ] `api/market.ts` typed client
-- [ ] Symbol search box
-- [ ] Quote panel
+- [x] Typed client (`api/trading.ts`), symbol search box and quote, built into slice 3's trade panel
 
 **Verified** by driving the API against live Finnhub and MySQL: `AAPL`, `MSFT`, `TSLA`
 and `NVDA` return real prices as strings to two decimals; a lowercase path symbol is
@@ -169,6 +167,42 @@ call, and every parameter rejection.
 **Not verified:** no UI exists for this slice yet. Real Finnhub rate-limiting (HTTP
 `429`) is still unobserved — the stub covers a `500` and a malformed body, which take
 the same code path, but the provider's actual throttling behaviour has not been seen.
+
+## Slice 3 — Trading (market orders) ✅
+
+**Goal:** an authenticated user can buy and sell at the current price, with risk checks
+before execution and no way for concurrent orders to spend the same cash.
+
+**Backend**
+
+- [x] `V3__trading.sql`: `orders`, `trades`, `holdings`, `cash_transactions`
+- [x] `POST /api/orders` (`201`, or `422` on a risk rejection), `GET /api/orders`, `GET /api/trades`
+- [x] `TradingService`: price fetched *before* the transaction; then one transaction that locks the user row (`SELECT ... FOR UPDATE`), runs risk, inserts order + trade, moves cash, writes the ledger, updates the holding
+- [x] `RiskService`: sufficient balance, sufficient shares, max order value, max position size. Pure: `TradingService` passes it the facts
+- [x] A rejected order is committed as `REJECTED` with its reason, and `OrderRejectedException` is thrown only after the commit
+- [x] Realized P&L and volume-weighted average cost on `Holding`
+
+**Frontend**
+
+- [x] `TradePanel` (search, quote, buy/sell, whole-share quantity) and `OrderHistory` on the dashboard; cash refreshes after every order
+
+**Tests:** 38 in total (16 new: 7 unit tests on the risk rules, 9 API tests). The race test fires
+eight $600 buys at $1,000 of cash and asserts exactly one fills. **It was checked to fail
+without the lock:** with `LockModeType.NONE` all eight fill and none is rejected, so the
+test really is exercising the lock.
+
+**Verified** against real MySQL and real Finnhub: a `BUY 3 AAPL` at `338.40` filled and cash
+went from `100000` to `98984.80`; a `SELL 99` was refused `422 not enough shares`.
+
+**Decisions made building it**
+
+- Quantity is whole shares (`BIGINT`).
+- Position limit values the portfolio as cash + other holdings *at cost* + this symbol at the current price, so checking one order never costs a Finnhub call per holding.
+- `orders.symbol` has no foreign key to `stocks`: that table only holds searched symbols, while any symbol Finnhub quotes is tradable.
+- A fully sold position stays as a row with `quantity = 0`, so its realized P&L is not lost.
+- `OrderSide` lives in `common`, because `risk` needs it and nothing may depend on `trading`.
+- `DELETE /api/orders/{id}` and limit/trigger price columns are left for slice 6; nothing can be `PENDING` yet.
+- No opening `DEPOSIT` ledger row is written at signup, so the ledger does not yet reconcile to the starting `$100,000`.
 
 ## Decisions made
 
@@ -201,9 +235,7 @@ the same code path, but the provider's actual throttling behaviour has not been 
 
 ## Known gaps / deliberate deferrals
 
-- **No concurrency test yet.** The suite covers auth and market behaviour, but nothing
-  yet exercises two requests racing for the same cash — that arrives with the slice 3
-  order transaction, which is what rules 2 and 3 exist for.
+- **Only the buy race is tested.** Concurrent sells of the same shares are covered by the same lock but have no test of their own.
 - **No frontend tests at all.** `tsc` and ESLint are the only checks on the client.
 - **`stocks.exchange` and `stocks.sector` are always null.** Finnhub's search payload
   carries neither; filling them needs a `/stock/profile2` call per symbol. Left for

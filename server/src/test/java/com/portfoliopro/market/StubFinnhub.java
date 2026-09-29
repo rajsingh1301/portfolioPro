@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * it received, which is the only way to prove the cache actually prevents upstream
  * calls rather than merely appearing to.
  */
-final class StubFinnhub {
+public final class StubFinnhub {
 
     private final HttpServer server;
     private final AtomicInteger requestCount = new AtomicInteger();
@@ -28,7 +28,7 @@ final class StubFinnhub {
         this.server = server;
     }
 
-    static StubFinnhub start() throws IOException {
+    public static StubFinnhub start() throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         StubFinnhub stub = new StubFinnhub(server);
         server.createContext("/", exchange -> {
@@ -45,31 +45,31 @@ final class StubFinnhub {
         return stub;
     }
 
-    String baseUrl() {
+    public String baseUrl() {
         return "http://127.0.0.1:" + server.getAddress().getPort();
     }
 
-    void respondWith(int status, String body) {
+    public void respondWith(int status, String body) {
         this.status = status;
         this.body = body;
     }
 
-    int requestCount() {
+    public int requestCount() {
         return requestCount.get();
     }
 
-    List<String> paths() {
+    public List<String> paths() {
         return List.copyOf(paths);
     }
 
-    void reset() {
+    public void reset() {
         requestCount.set(0);
         paths.clear();
         status = 200;
         body = "{}";
     }
 
-    void stop() {
+    public void stop() {
         server.stop(0);
     }
 }

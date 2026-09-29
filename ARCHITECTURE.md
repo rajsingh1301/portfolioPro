@@ -210,9 +210,9 @@ exception handler. Bean Validation on every request body. CORS allows only
 
 Each slice is built and verified end-to-end (backend + UI) before the next begins.
 
-1. **Auth** — signup, login, JWT, protected route, `$100,000` on signup ← *current*
+1. **Auth** — signup, login, JWT, protected route, `$100,000` on signup
 2. **Market data** — Finnhub client, quote endpoint, Caffeine cache, search
-3. **Trading (market orders only)** — the atomic transaction, risk checks, order list
+3. **Trading (market orders only)** — the atomic transaction, risk checks, order list ← *current*
 4. **Portfolio** — holdings, unrealized/realized P&L, dashboard
 5. **Charts** — candles endpoint + Lightweight Charts
 6. **Pending orders** — limit, stop-loss, the scheduler
