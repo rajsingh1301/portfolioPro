@@ -193,7 +193,7 @@ login.
 | Analysis | GET | `/api/stocks/{symbol}/fundamentals` |
 
 Conventions: `200` read, `201` created, `400` bad input, `401` unauthenticated,
-`404` not found, `422` business rule failed. One JSON error shape from a global
+`404` not found, `422` business rule failed, `503` upstream market data unavailable. One JSON error shape from a global
 exception handler. Bean Validation on every request body. CORS allows only
 `http://localhost:5173` and the deployed frontend origin.
 

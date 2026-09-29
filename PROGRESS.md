@@ -4,7 +4,7 @@ What exists in this repo right now, and what is next. Updated as each slice land
 For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 **Last updated:** 2026-09-29
-**Current slice:** 2 — Market data + cache (not started)
+**Current slice:** 2 — Market data + cache (backend done, frontend next)
 
 ---
 
@@ -14,7 +14,7 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 |---|---|---|
 | 0 | Project setup | ✅ Done |
 | 1 | Auth | ✅ Done |
-| 2 | Market data + cache | ⬜ Not started |
+| 2 | Market data + cache | 🟡 Backend done, frontend pending |
 | 3 | Trading (market orders) | ⬜ Not started |
 | 4 | Portfolio | ⬜ Not started |
 | 5 | Charts | ⬜ Not started |
@@ -101,19 +101,43 @@ clicked through.
 
 ---
 
-## Slice 2 — Market data + cache ⬜
+## Slice 2 — Market data + cache 🟡
 
 **Goal:** an authenticated user can search symbols and see a live quote, with Finnhub
-called at most once per symbol per TTL.
+called at most once per symbol per TTL. — backend met; the UI is not built yet.
 
-- [ ] Finnhub API key obtained and added to `server/.env` as `FINNHUB_API_KEY`
-- [ ] `market` module: Finnhub client (`RestClient`), quote + search endpoints
-- [ ] Caffeine cache on the quote path, 10–30s TTL
-- [ ] `stocks` table + migration `V2__market.sql`
-- [ ] `GET /api/stocks/search?q=`, `GET /api/stocks/{symbol}/quote`
-- [ ] Frontend: symbol search box and a quote panel
+**Backend**
 
----
+- [x] Finnhub API key in `server/.env` as `FINNHUB_API_KEY`
+- [x] `market` module: `FinnhubClient` (`RestClient`, 5s connect/read timeout), `MarketService`, `MarketController`
+- [x] Caffeine cache: quotes 15s, symbol search 60 min, via `config/CacheConfig`
+- [x] `stocks` table + migration `V2__market.sql`
+- [x] `GET /api/stocks/search?q=` — top 10 US common stocks, upserts what it finds
+- [x] `GET /api/stocks/{symbol}/quote` — price, change, %, high, low, open, previous close
+- [x] `MarketDataUnavailableException` → `503` when Finnhub is unreachable or unreadable
+- [x] Bean Validation on both parameters, reported through the existing error shape
+
+**Frontend**
+
+- [ ] `api/market.ts` typed client
+- [ ] Symbol search box
+- [ ] Quote panel
+
+**Verified** by driving the API against live Finnhub and MySQL: `AAPL`, `MSFT`, `TSLA`
+and `NVDA` return real prices as strings to two decimals; a lowercase path symbol is
+normalised to uppercase; an unknown symbol returns `404` (Finnhub answers zeros, not an
+error); both routes return `401` without a token and with a tampered one; a blank,
+missing or over-long `q` and a non-ticker symbol all return `400` with the field named
+`q` or `symbol`; CORS preflight from `:5173` passes. **The cache was measured, not
+assumed:** the first `NVDA` quote took 1.17s, the next four 5–15ms, and a call 16s later
+took 0.9s — the TTL expiring and going upstream again. A symbol Finnhub does not carry
+is cached too (0.35s then 4ms), so a bad symbol cannot be used to burn the rate limit.
+The `stocks` table holds the searched symbols with UTC timestamps, and re-running the
+same search does not duplicate rows.
+
+**Not verified:** no UI exists for this slice yet, and there are still no automated
+tests. Behaviour when Finnhub is actually down or rate-limiting was not exercised — the
+`503` path is reasoned, not observed.
 
 ## Decisions made
 
@@ -128,6 +152,11 @@ called at most once per symbol per TTL.
 | 2026-09-29 | Duplicate email returns `422`, not `409` | Keeps to the status codes ARCHITECTURE §10 already lists — a well-formed request failing a business rule |
 | 2026-09-29 | Money formatted to a string in the DTO, not by a Jackson setting | `UserResponse.from` calls `toPlainString()`, so rule 1 is visible at the boundary rather than depending on serializer config |
 | 2026-09-29 | `.env` read through `spring.config.import`, no extra dependency | The same keys work as real environment variables in a deployed environment |
+| 2026-09-29 | The cache sits on `FinnhubClient`, not `MarketService` | `@Cacheable` does not cache thrown exceptions, so caching above the 404 check would let an unknown symbol hit Finnhub on every request |
+| 2026-09-29 | Upstream failure returns `503`, a code ARCHITECTURE §10 does not list | Nothing is wrong with this service and retrying is reasonable, which is neither a `500` nor a `422` |
+| 2026-09-29 | Search results are written to `stocks`; the quote path is not | Search is the only call that returns a company name, and by the time a user can order a symbol they have searched it |
+| 2026-09-29 | Finnhub JSON parsed with `USE_BIG_DECIMAL_FOR_FLOATS` | Rule 1 starts at the process boundary — the default `double` would turn `197.33` into `197.32999999999998` |
+| 2026-09-29 | No `@Validated` on `MarketController` | Spring 6.1+ validates constrained controller parameters itself; the annotation replaces that with an AOP proxy whose raw `ConstraintViolationException` surfaced as a `500` |
 
 ## Open questions
 
@@ -142,6 +171,15 @@ called at most once per symbol per TTL.
 - **No tests yet**, and slice 1 shipped without any. Slice 3 (the order transaction) is
   where they become genuinely necessary — concurrency and rollback cannot be verified
   by clicking. Worth adding a `@SpringBootTest` slice for auth at the same time.
+- **`stocks.exchange` and `stocks.sector` are always null.** Finnhub's search payload
+  carries neither; filling them needs a `/stock/profile2` call per symbol. Left for
+  whenever a screen actually shows them — slice 8 needs profile data anyway.
+- **Search filters hard** to US common stocks with no dot in the ticker, so `microsoft`
+  returns exactly `MSFT`. Precise, but a broader query may return less than a user
+  expects; worth revisiting once the search box exists.
+- **The quote cache is keyed by symbol alone**, which is intended — ten users watching
+  `AAPL` cost one upstream call — but it means no per-user throttling exists. A single
+  user cycling through many symbols can still exhaust the 60/min free tier.
 - No deployment setup. Local development only for now.
 - Nothing is committed yet — git is initialised and the tree is staged, but there is no
   first commit.
