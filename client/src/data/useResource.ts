@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { errorMessage } from '../api/client'
 
@@ -16,34 +16,40 @@ export interface Resource<T> {
 
 export function useResource<T>(fetcher: () => Promise<T>, failureMessage: string) {
   const [state, setState] = useState<Resource<T>>({ data: null, error: null, loading: true })
+  // Every request takes a number. Only the answer to the most recently started one is used, so a
+  // slow older response can never overwrite a newer one. Without this, a poll that began before the
+  // user added a symbol could arrive after the reload that followed, and put the old list back.
+  const latest = useRef(0)
 
   // The first load. Written out here, with setState only in the callbacks, rather than by
   // calling `reload`, so nothing sets state synchronously inside the effect.
   useEffect(() => {
-    let active = true
+    const request = ++latest.current
     fetcher()
       .then((data) => {
-        if (active) {
+        if (latest.current === request) {
           setState({ data, error: null, loading: false })
         }
       })
       .catch((failure: unknown) => {
-        if (active) {
+        if (latest.current === request) {
           setState({ data: null, error: errorMessage(failure, failureMessage), loading: false })
         }
       })
-    return () => {
-      active = false
-    }
   }, [fetcher, failureMessage])
 
   /** A quiet refresh: keeps what is on screen, and swaps it or notes the failure beside it. */
   const reload = useCallback(async () => {
+    const request = ++latest.current
     try {
       const data = await fetcher()
-      setState({ data, error: null, loading: false })
+      if (latest.current === request) {
+        setState({ data, error: null, loading: false })
+      }
     } catch (failure) {
-      setState((previous) => ({ data: previous.data, error: errorMessage(failure, failureMessage), loading: false }))
+      if (latest.current === request) {
+        setState((previous) => ({ data: previous.data, error: errorMessage(failure, failureMessage), loading: false }))
+      }
     }
   }, [fetcher, failureMessage])
 

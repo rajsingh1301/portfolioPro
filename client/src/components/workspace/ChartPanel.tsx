@@ -318,7 +318,9 @@ export function ChartPanel({ symbol, quote, expanded = false, actions }: ChartPa
         <h2 className="text-lg font-semibold">{symbol}</h2>
         {quote.quote !== null ? (
           <>
-            <PriceCell value={quote.quote.price} className="text-lg font-semibold" />
+            <span data-testid="quote-price">
+              <PriceCell value={quote.quote.price} className="text-lg font-semibold" />
+            </span>
             <Change amount={quote.quote.change ?? undefined} percent={quote.quote.percentChange ?? undefined} className="text-sm" />
           </>
         ) : quote.error !== null ? (

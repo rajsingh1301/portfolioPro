@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { errorMessage } from '../api/client'
 import { fetchQuote } from '../api/trading'
@@ -12,50 +12,54 @@ type State = { symbol: string; quote: Quote | null; error: string | null }
 /**
  * The live quote for one symbol, refreshed every 15s while the tab is showing. The result is
  * tagged with the symbol it was for, so switching symbol never shows the previous one's price
- * under the new one's name while the new answer is on its way.
+ * under the new one's name while the new answer is on its way. Only the latest request's answer
+ * is applied, so a slow poll for the old symbol cannot overwrite the new one's price either.
  */
 export function useQuote(symbol: string) {
   const [state, setState] = useState<State>({ symbol, quote: null, error: null })
+  const latest = useRef(0)
 
-  const load = useCallback(
-    () =>
-      fetchQuote(symbol)
-        .then((quote) => setState({ symbol, quote, error: null }))
-        .catch((failure: unknown) =>
-          setState((previous) => ({
-            symbol,
-            // Keep the last good price for this symbol on screen, and note the failure beside it.
-            quote: previous.symbol === symbol ? previous.quote : null,
-            error: errorMessage(failure, `Could not load a price for ${symbol}`),
-          })),
-        ),
+  const settle = useCallback(
+    (request: number, outcome: { quote: Quote } | { failure: unknown }) => {
+      if (latest.current !== request) {
+        return
+      }
+      if ('quote' in outcome) {
+        setState({ symbol, quote: outcome.quote, error: null })
+      } else {
+        setState((previous) => ({
+          symbol,
+          // Keep the last good price for this symbol on screen, and note the failure beside it.
+          quote: previous.symbol === symbol ? previous.quote : null,
+          error: errorMessage(outcome.failure, `Could not load a price for ${symbol}`),
+        }))
+      }
+    },
     [symbol],
   )
 
+  const load = useCallback(() => {
+    const request = ++latest.current
+    return fetchQuote(symbol).then(
+      (quote) => settle(request, { quote }),
+      (failure: unknown) => settle(request, { failure }),
+    )
+  }, [symbol, settle])
+
   useEffect(() => {
-    let active = true
-    // Not `load()`: state is set only in the callbacks, and only while this effect is current.
-    fetchQuote(symbol)
-      .then((quote) => active && setState({ symbol, quote, error: null }))
-      .catch(
-        (failure: unknown) =>
-          active &&
-          setState((previous) => ({
-            symbol,
-            quote: previous.symbol === symbol ? previous.quote : null,
-            error: errorMessage(failure, `Could not load a price for ${symbol}`),
-          })),
-      )
+    // Not `load()`: state is set only in the callbacks, never synchronously in the effect body.
+    const request = ++latest.current
+    fetchQuote(symbol).then(
+      (quote) => settle(request, { quote }),
+      (failure: unknown) => settle(request, { failure }),
+    )
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         void load()
       }
     }, POLL_MS)
-    return () => {
-      active = false
-      window.clearInterval(timer)
-    }
-  }, [symbol, load])
+    return () => window.clearInterval(timer)
+  }, [symbol, load, settle])
 
   const current = state.symbol === symbol
   return {
