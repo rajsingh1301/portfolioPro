@@ -46,6 +46,14 @@ public class MarketService {
     }
 
     /**
+     * The whole cached quote (price, previous close, when it was struck), for callers that need
+     * more than the price. Like {@link #currentPrice} it is not transactional.
+     */
+    public FinnhubQuote currentQuote(String symbol) {
+        return fetchQuote(normalizeSymbol(symbol));
+    }
+
+    /**
      * The last price as a decimal, for callers that trade on it. Deliberately not
      * transactional: the trading service fetches this before it takes a row lock, so
      * an upstream call is never made while a user's cash is locked.
