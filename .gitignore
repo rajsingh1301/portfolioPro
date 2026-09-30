@@ -19,3 +19,6 @@ npm-debug.log*
 .idea/
 .vscode/
 *.iml
+
+# End-to-end runner
+e2e/node_modules/

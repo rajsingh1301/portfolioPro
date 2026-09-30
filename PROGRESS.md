@@ -3,8 +3,8 @@
 What exists in this repo right now, and what is next. Updated as each slice lands.
 For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
-**Last updated:** 2026-09-29
-**Current slice:** 2 — Market data + cache (backend done, frontend next)
+**Last updated:** 2026-09-30
+**State:** all nine slices are built, tested and verified end to end. What is left is deployment and client unit tests (see "Known gaps").
 
 ---
 
@@ -25,12 +25,16 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 
 Legend: ✅ done · 🟡 partial · ⬜ not started
 
+**120 server tests** pass against a real MySQL 8.4 (Testcontainers), and a 13-step browser journey in `e2e/` walks the whole app on the real stack. Every safety property (row lock, fill/cancel race, ledger reconciliation, parallel fetching, advice-free wording, the calculators) was checked to fail when deliberately broken.
+
 ---
 
 ## Running the tests
 
 ```bash
-cd server && ./mvnw test          # 22 tests, ~25s, needs Docker running
+cd server && ./mvnw test          # 120 tests, ~1 min, needs Docker running
+cd client && npx tsc -b && npx eslint .    # type-check and lint
+cd e2e && npm run journey         # the whole app in a browser; needs the app running
 ```
 
 Tests run against a real **MySQL 8.4 in Testcontainers**, not H2: the migrations are
@@ -39,9 +43,13 @@ an in-memory database exercises. One container is shared by the whole run. The
 `portfoliopro` MySQL user has no privileges outside its own schema, so a local test
 database was not an option anyway.
 
-Finnhub is never called from a test — `StubFinnhub` serves canned JSON on a random
-local port and counts the requests it receives, which is how the cache assertions
-prove upstream calls were actually prevented.
+Finnhub and Twelve Data are never called from a test — `StubFinnhub` serves canned JSON on a random
+local port, counts the requests it receives (which is how the cache assertions prove upstream
+calls were actually prevented) and reports how many overlapped (which is how the parallel-fetching
+assertions work).
+
+The end-to-end journey in `e2e/` is the opposite: it uses the live APIs and the real timer, and
+exists to catch what stubs cannot.
 
 ## Running it locally
 
@@ -202,7 +210,7 @@ went from `100000` to `98984.80`; a `SELL 99` was refused `422 not enough shares
 - A fully sold position stays as a row with `quantity = 0`, so its realized P&L is not lost.
 - `OrderSide` lives in `common`, because `risk` needs it and nothing may depend on `trading`.
 - `DELETE /api/orders/{id}` and limit/trigger price columns are left for slice 6; nothing can be `PENDING` yet.
-- No opening `DEPOSIT` ledger row is written at signup, so the ledger does not yet reconcile to the starting `$100,000`.
+- ~~No opening `DEPOSIT` ledger row is written at signup~~ — fixed at the end of the project: signup now writes one, `V6` backfilled existing accounts, and the ledger reconciles for every account (see "Closing the gaps").
 
 ## Slice 4 — Portfolio ✅
 
@@ -435,24 +443,28 @@ While there, the two Finnhub calls behind fundamentals (profile and metrics) now
 - **Candle storage:** decided for now to cache, not store (see slice 5). Revisit if slice 8's
   indicators or the daily quota need more history than the cache holds.
 
+## Closing the gaps
+
+Three gaps recorded along the way were closed at the end.
+
+- **Signup and login disagreed about an email.** Signup rejected `"  a@b.com  "`, which login accepted, because `@Email` ran before the service trimmed. Both requests now trim the email as they are built (never the password). `" A@x.com "` and `"a@x.com"` are one account, and a duplicate.
+- **The cash ledger did not add up to the balance**, because the starting `$100,000` had no row. Signup now writes a `DEPOSIT` row in the same transaction as the account, and `V6` backfilled one for every existing account. **Measured on the dev database: 0 of 30 accounts reconciled before the migration, 30 of 30 after.** The ledger moved from `trading` to `portfolio` (`auth` must write to it and nothing may depend on `trading`) and gained a `CashTransactionType` of `DEPOSIT`, `BUY` or `SELL`.
+- **The portfolio fetched its quotes one after another.** They now go out in parallel on virtual threads, like the watchlist's. A test with a 250ms upstream delay shows six requests overlapping.
+
+`stocks.exchange` and `stocks.sector`, always empty after slice 2, are now filled the first time a stock's fundamentals are viewed (slice 8).
+
 ## Known gaps / deliberate deferrals
 
+- **No deployment setup.** It runs locally only. Deploying needs decisions that are not the code's to make: where MySQL lives, where the two processes run, and how the API keys and `JWT_SECRET` reach them. CORS already reads its allowed origins from `app.cors.allowed-origins`.
+- **No client unit tests.** `tsc`, ESLint, and the browser journey in `e2e/` are the checks on the client.
 - **Only the buy race and the fill/cancel race are tested.** Concurrent sells of the same shares are covered by the same lock but have no test of their own.
 - **The scheduler assumes one running instance.** Two would both try to fill an order; the lock and the pending check keep that safe (the loser does nothing), but they would double the Finnhub calls.
 - **Every symbol with a pending order costs a Finnhub call each time its 15s quote expires**, so many distinct pending symbols can approach the 60/min limit.
-- **Pending buys do not reserve cash** (see slice 6).
+- **The quote cache is keyed by symbol alone**, which is intended (ten users watching `AAPL` cost one upstream call) but means no per-user throttling exists. A single user cycling through many symbols can still exhaust the 60/min free tier.
+- **Pending buys do not reserve cash** (see slice 6). Cash is re-checked when the order triggers.
 - **`save()` on a new entity with an assigned ID is a merge**, which overwrites an existing row with the new object's nulls (the JPM bug). `Stock`, `Holding` and `WatchlistEntry` all have assigned IDs; the callers check for an existing row first, but a future caller that does not will hit it again.
-- **The portfolio fetches its quotes one after another.** The watchlist does it in parallel; a portfolio with many holdings and a cold cache would be slow, and could use the same approach.
-- **No frontend tests at all.** `tsc` and ESLint are the only checks on the client.
-- **`stocks.exchange` and `stocks.sector` are always null.** Finnhub's search payload
-  carries neither; filling them needs a `/stock/profile2` call per symbol. Left for
-  whenever a screen actually shows them — slice 8 needs profile data anyway.
-- **Search filters hard** to US common stocks with no dot in the ticker, so `microsoft`
-  returns exactly `MSFT`. Precise, but a broader query may return less than a user
-  expects; worth revisiting once the search box exists.
-- **The quote cache is keyed by symbol alone**, which is intended — ten users watching
-  `AAPL` cost one upstream call — but it means no per-user throttling exists. A single
-  user cycling through many symbols can still exhaust the 60/min free tier.
-- No deployment setup. Local development only for now.
-- Nothing is committed yet — git is initialised and the tree is staged, but there is no
-  first commit.
+- **ta4j is pinned to 0.22.6**, the last release that runs on Java 21. A newer one means moving the project to Java 25.
+- **`1D` and `1W` indicators** are computed on 80 and 70 candles, enough for every window but thin for a 50-bar average; and the `1D` chart returns 80 five-minute bars, which spans a little over one session.
+- **Search filters hard** to US common stocks with no dot in the ticker, so `microsoft` returns exactly `MSFT`. Precise, but a broader query may return less than a user expects.
+- **Indian equities** are not covered: Finnhub's free tier has no NSE/BSE data, so the app is USD.
+- **The Twelve Data quota is small** (about 8 calls a minute, 800 a day). The 10-minute candle cache keeps a normal session well inside it, but many users viewing many symbols would not be.

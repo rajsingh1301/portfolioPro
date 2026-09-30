@@ -1,0 +1,12 @@
+{
+  "name": "portfoliopro-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "install-browser": "playwright install chromium",
+    "journey": "node journey.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

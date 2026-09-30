@@ -94,11 +94,11 @@ token and bounces to login.
 | `orders` | Every buy/sell request | `id`, `user_id`, `symbol`, `side`, `type`, `quantity`, `limit_price`, `trigger_price`, `status`, `reject_reason` |
 | `trades` | Actual executions | `id`, `order_id`, `symbol`, `side`, `quantity`, `price`, `executed_at` |
 | `holdings` | Current portfolio | `(user_id, symbol)` PK, `quantity`, `avg_price`, `realized_pnl` |
-| `cash_transactions` | Cash ledger | `id`, `user_id`, `type`, `amount`, `balance_after` |
+| `cash_transactions` | Cash ledger; its amounts sum to the balance | `id`, `user_id`, `order_id`, `type` (`DEPOSIT`, `BUY`, `SELL`), `amount`, `balance_after` |
 | `risk_settings` | Per-user limits | `user_id` (PK), `max_position_pct`, `max_order_value`, `default_stop_loss_pct` |
 | `watchlist` | Stocks a user follows | `(user_id, symbol)` PK |
-| `price_candles` | Chart history | `(symbol, interval, ts)` PK, OHLCV |
-| `stock_fundamentals` | Latest ratios | `symbol` (PK), `market_cap`, `pe_ratio`, `eps`, `roe`, `dividend_yield` |
+| `price_candles` | Chart history (**never created**: cached in memory instead) | `(symbol, interval, ts)` PK, OHLCV |
+| `stock_fundamentals` | Latest ratios (**never created**: cached in memory instead) | `symbol` (PK), `market_cap`, `pe_ratio`, `eps`, `roe`, `dividend_yield` |
 
 Relationships: a user has many orders, trades, holdings, ledger rows and watchlist
 entries; an order has many trades (partial fills); a user has exactly one
@@ -218,6 +218,10 @@ Each slice is built and verified end-to-end (backend + UI) before the next begin
 6. **Pending orders** — limit, stop-loss, the scheduler
 7. **Watchlist**
 8. **Analysis** — ta4j indicators, fundamentals card
-9. **Risk settings UI** ← *current*
+9. **Risk settings UI**
+
+All nine slices are built. `price_candles` and `stock_fundamentals` were never created: candles and
+fundamentals are cached in memory rather than stored, and nothing needs more history than the
+cache holds (see PROGRESS.md).
 
 Slice 3 is the hard one; slices 1–2 exist mainly to make it testable.
