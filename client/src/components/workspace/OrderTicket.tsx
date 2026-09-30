@@ -206,7 +206,7 @@ export function OrderTicket({ symbol, quote }: OrderTicketProps) {
           <dd className="text-right tabular-nums">{portfolio.data === null ? '—' : `${held} ${held === 1 ? 'share' : 'shares'}`}</dd>
         </dl>
 
-        <button type="submit" disabled={busy} className="btn btn-primary min-h-8 w-full text-base">
+        <button type="submit" disabled={busy} className="btn btn-primary min-h-8 w-full text-base pointer-coarse:min-h-11">
           {busy ? 'Placing…' : `${side === 'BUY' ? 'Buy' : 'Sell'} ${symbol}${orderType === 'MARKET' ? '' : orderType === 'LIMIT' ? ' limit' : ' stop-loss'}`}
         </button>
 

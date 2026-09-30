@@ -386,9 +386,12 @@ export function ChartPanel({ symbol, quote, expanded = false, actions }: ChartPa
               <dd className="font-medium">{formatCompactNumber(readout.volume)}</dd>
             </div>
             {candleChange !== null && (
-              <dd>
-                <Change amount={candleChange.amount} percent={candleChange.percent} />
-              </dd>
+              <div>
+                <dt className="sr-only">Change from the previous candle</dt>
+                <dd>
+                  <Change amount={candleChange.amount} percent={candleChange.percent} />
+                </dd>
+              </div>
             )}
           </dl>
         )}

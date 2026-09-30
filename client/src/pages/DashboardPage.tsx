@@ -23,7 +23,12 @@ export function DashboardPage() {
   const { symbol } = useSelectedSymbol()
   const quote = useQuote(symbol)
   const desktop = useIsDesktop()
-  return desktop ? <Workspace symbol={symbol} quote={quote} /> : <MobileWorkspace symbol={symbol} quote={quote} />
+  return (
+    <div className="h-full">
+      <h1 className="sr-only">Dashboard</h1>
+      {desktop ? <Workspace symbol={symbol} quote={quote} /> : <MobileWorkspace symbol={symbol} quote={quote} />}
+    </div>
+  )
 }
 
 type Props = { symbol: string; quote: ReturnType<typeof useQuote> }
@@ -95,11 +100,12 @@ function Workspace({ symbol, quote }: Props) {
               onLayoutChanged={rail.onLayoutChanged}
               className="h-full"
             >
-              <Panel id="watchlist" defaultSize="45%" minSize={120}>
+              {/* The ticket needs about 320px to show everything without scrolling; the watchlist scrolls anyway. */}
+              <Panel id="watchlist" defaultSize="34%" minSize={120}>
                 <WatchlistTable activeSymbol={symbol} />
               </Panel>
               <ResizeHandle orientation="horizontal" />
-              <Panel id="ticket" minSize={260}>
+              <Panel id="ticket" minSize={320}>
                 <OrderTicket symbol={symbol} quote={quote} />
               </Panel>
             </Group>

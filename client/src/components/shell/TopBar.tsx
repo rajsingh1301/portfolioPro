@@ -10,7 +10,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const next = theme === 'dark' ? 'light' : 'dark'
   return (
     <header className="flex h-10 shrink-0 items-center gap-3 border-b border-rule bg-panel px-3 pointer-coarse:h-12">
-      <Link to="/" className="text-base font-semibold tracking-tight text-ink" aria-label="PortfolioPro, home">
+      <Link to="/" className="inline-flex items-center text-base font-semibold tracking-tight text-ink pointer-coarse:min-h-11" aria-label="PortfolioPro, home">
         PortfolioPro
       </Link>
 
@@ -19,7 +19,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         onClick={onOpenPalette}
         aria-label="Search symbols and commands"
         aria-keyshortcuts="Control+K /"
-        className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-control border border-edge bg-field px-2 text-left text-sm text-ink-3 transition-colors duration-150 hover:bg-hover sm:max-w-sm pointer-coarse:h-9"
+        className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-control border border-edge bg-field px-2 text-left text-sm text-ink-3 transition-colors duration-150 hover:bg-hover sm:max-w-sm pointer-coarse:h-11"
       >
         <Icon name="search" size={14} className="shrink-0" />
         <span className="min-w-0 flex-1 truncate">Search symbols</span>

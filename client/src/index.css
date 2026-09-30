@@ -8,14 +8,18 @@
  * 4px radius at most, no shadows, no gradients. Green and red mean up and down and nothing else;
  * the one blue is reserved for the action that matters. Numbers are tabular so columns line up.
  *
- * Contrast, measured (WCAG AA is 4.5 for text, 3 for a control's border):
- *   dark  on canvas #131722 / panel #1e222d
- *     text 12.1 / 10.7   secondary 8.6 / 7.6   muted 6.2 / 5.5   up 6.0 / 5.3   down 5.1 / 4.6
+ * Contrast, measured (WCAG AA is 4.5 for text, 3 for a control's border). Text can sit on the
+ * canvas, on a panel, on a hovered row or on a selected row, so each colour is checked on all four:
+ *   dark  (canvas #131722, panel #1e222d, hover #222632, selected #2a2e39)
+ *     text 12.1 / 10.7 / ..   muted 6.2 / 5.5 / 5.2 / 4.7
+ *     up 6.7 / 5.9 / 5.6 / 5.1   down 6.2 / 5.5 / 5.2 / 4.7
  *     accent as text 6.7 / 5.9   white on the accent button 4.9   control edge 4.1 / 3.6
- *   light on canvas #ffffff / panel #f8f9fd
- *     text 17.9 / 17.0   muted 6.3 / 6.0   up 5.3 / 5.1   down 5.6 / 5.3   accent 4.9 / 4.7   edge 3.2 / 3.0
- * TradingView's own muted grey (#787b86, 4.2 on its dark canvas) and its light green and red
- * (3.6 and 3.9 on white) fail for small text, so those steps are darker or lighter here.
+ *   light (canvas #ffffff, panel #f8f9fd, hover #f0f3fa, selected #e3effd)
+ *     muted 6.3 / 6.0 / 5.6 / 5.4   up 5.3 / 5.1 / 4.8 / 4.6   down 5.6 / 5.3 / 5.1 / 4.8
+ *     accent 6.1 / 5.8 / 5.5 / 5.3   control edge 3.2 / 3.0
+ * TradingView's own values fail here: its muted grey (#787b86) is 4.2 on its dark canvas, its dark
+ * red (#ef5350) is 3.9 on a selected row, and its light-theme green and red are 3.6 and 3.9 on white.
+ * So those steps are lighter or darker in this app. The audit in e2e/ keeps them honest.
  */
 @theme static {
   --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -48,8 +52,9 @@
   --color-accent: #2962ff;
   --color-accent-strong: #1e53e5;
   --color-accent-text: #6f9bff;
-  --color-up: #26a69a;
-  --color-down: #ef5350;
+  /* Not TradingView's #26a69a and #ef5350: those fall below 4.5 on a hovered or selected row. */
+  --color-up: #2bb0a3;
+  --color-down: #f66c68;
 
   /* Chart categorical slots, in their validated order (the dark steps of the palette). */
   --color-series-1: #3987e5;
@@ -92,7 +97,12 @@ html[data-theme='light'] {
     background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-size: 13px;
+    /*
+     * The root stays at the browser's 16px on purpose. Every size in the app is in rem (the type
+     * scale below, and Tailwind's spacing), so shrinking the root to 13px would have shrunk
+     * everything with it: 12px labels would have rendered at 9.75px and a "44px" tap target at
+     * 36px. The 13px body comes from the type scale, not from the root.
+     */
     color-scheme: dark;
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
@@ -106,6 +116,7 @@ html[data-theme='light'] {
 
   body {
     margin: 0;
+    font-size: var(--text-base); /* 13px */
     line-height: 1.25rem;
   }
 
@@ -196,7 +207,7 @@ html[data-theme='light'] {
     @apply inline-flex overflow-hidden rounded-control border border-edge;
   }
   .seg > button {
-    @apply min-h-6 px-2.5 text-sm font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink aria-pressed:bg-selected aria-pressed:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent;
+    @apply min-h-7 px-2.5 text-sm font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink aria-pressed:bg-selected aria-pressed:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent;
   }
   .seg > button + button {
     border-left: 1px solid var(--color-edge);
@@ -208,7 +219,7 @@ html[data-theme='light'] {
   }
 
   .chip {
-    @apply inline-flex min-h-6 items-center gap-1.5 rounded-full border border-edge px-2.5 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-hover aria-pressed:border-accent-text aria-pressed:bg-selected aria-pressed:text-ink;
+    @apply inline-flex min-h-7 items-center gap-1.5 rounded-full border border-edge px-2.5 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-hover aria-pressed:border-accent-text aria-pressed:bg-selected aria-pressed:text-ink;
   }
   @media (pointer: coarse) {
     .chip {
