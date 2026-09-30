@@ -58,7 +58,7 @@ async function blurFocus() {
 }
 
 // 1. signup lands on the workspace
-await p.goto(`${BASE}/signup`)
+await p.goto(`${BASE}/signup`, { waitUntil: 'domcontentloaded' })
 await p.fill('input[name=email]', email)
 for (const field of await p.locator('input[type=password]').all()) await field.fill(password)
 await p.click('button[type=submit]')
@@ -274,7 +274,7 @@ await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
 await p.waitForTimeout(800)
 assert.equal(await p.locator('tr:has-text("MSFT")').count() > 0, true, 'a failed refresh must not blank the table')
 // ...but a first load that fails has nothing to show, so it says so, with a Retry in its place.
-await p.goto(`${BASE}/watchlist`)
+await p.goto(`${BASE}/watchlist`, { waitUntil: 'domcontentloaded' })
 await p.locator('button:text-is("Retry")').first().waitFor()
 assert.equal(await p.locator('[role=alert]').count() > 0, true)
 await p.unroute('**/api/watchlist')
@@ -301,7 +301,7 @@ ok('reload and log out -> log in with a padded, upper-case email -> the same acc
 
 // 17. no token, no access
 await p.evaluate(() => localStorage.removeItem('portfoliopro.token'))
-await p.goto(`${BASE}/portfolio`)
+await p.goto(`${BASE}/portfolio`, { waitUntil: 'domcontentloaded' })
 await p.waitForURL(`${BASE}/login`)
 ok('no token -> redirected to login')
 
@@ -309,7 +309,7 @@ ok('no token -> redirected to login')
 const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 const m = await phone.newPage()
 watch(m, 'phone')
-await m.goto(`${BASE}/login`)
+await m.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
 await m.fill('input[name=email]', email)
 await m.fill('input[type=password]', password)
 await m.click('button[type=submit]')
