@@ -22,7 +22,7 @@ public class PerformanceController {
     public PerformanceResponse performance(
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam(defaultValue = "3M")
-                    @Pattern(regexp = PerformanceRange.PATTERN, message = "must be one of 1M, 3M, 6M, 1Y") String range) {
+                    @Pattern(regexp = PerformanceRange.PATTERN, message = "must be one of 1W, 1M, 3M, 6M, 1Y, ALL") String range) {
         return performanceService.performance(principal.userId(), range);
     }
 }

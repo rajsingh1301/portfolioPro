@@ -81,6 +81,8 @@ class PortfolioApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cash").value("100000.00"))
                 .andExpect(jsonPath("$.totalValue").value("100000.00"))
+                .andExpect(jsonPath("$.overallPnl").value("0.00"))
+                .andExpect(jsonPath("$.overallPnlPercent").value("0.00"))
                 .andExpect(jsonPath("$.holdings.length()").value(0));
         mockMvc.perform(get("/api/portfolio/allocation").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -100,6 +102,10 @@ class PortfolioApiTest {
                 .andExpect(jsonPath("$.holdingsValue").value("1100.00"))
                 .andExpect(jsonPath("$.totalValue").value("100100.00"))
                 .andExpect(jsonPath("$.unrealizedPnl").value("100.00"))
+                // Overall is unrealized + realized (100 + 0), as a share of the 100,000 put in.
+                .andExpect(jsonPath("$.netDeposits").value("100000.00"))
+                .andExpect(jsonPath("$.overallPnl").value("100.00"))
+                .andExpect(jsonPath("$.overallPnlPercent").value("0.10"))
                 .andExpect(jsonPath("$.holdings[0].symbol").value("AAPL"))
                 .andExpect(jsonPath("$.holdings[0].quantity").value(10))
                 .andExpect(jsonPath("$.holdings[0].avgPrice").value("100.00"))
@@ -124,7 +130,10 @@ class PortfolioApiTest {
                 .andExpect(jsonPath("$.holdings[0].unrealizedPnl").value("-100.00"))
                 .andExpect(jsonPath("$.holdings[0].unrealizedPnlPercent").value("-10.00"))
                 .andExpect(jsonPath("$.unrealizedPnl").value("-100.00"))
-                .andExpect(jsonPath("$.realizedPnl").value("-100.00"));
+                .andExpect(jsonPath("$.realizedPnl").value("-100.00"))
+                // -100 unrealized and -100 realized: -200 in all, which is -0.20% of 100,000.
+                .andExpect(jsonPath("$.overallPnl").value("-200.00"))
+                .andExpect(jsonPath("$.overallPnlPercent").value("-0.20"));
     }
 
     @Test

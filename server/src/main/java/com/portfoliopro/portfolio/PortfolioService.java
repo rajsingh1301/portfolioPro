@@ -27,6 +27,7 @@ public class PortfolioService {
 
     private final UserRepository userRepository;
     private final HoldingRepository holdingRepository;
+    private final CashTransactionRepository ledgerRepository;
     private final MarketService marketService;
     private final TransactionTemplate readOnly;
     private final ExecutorService quoteExecutor = Executors.newVirtualThreadPerTaskExecutor();
@@ -34,17 +35,19 @@ public class PortfolioService {
     public PortfolioService(
             UserRepository userRepository,
             HoldingRepository holdingRepository,
+            CashTransactionRepository ledgerRepository,
             MarketService marketService,
             PlatformTransactionManager transactionManager) {
         this.userRepository = userRepository;
         this.holdingRepository = holdingRepository;
+        this.ledgerRepository = ledgerRepository;
         this.marketService = marketService;
         this.readOnly = new TransactionTemplate(transactionManager);
         this.readOnly.setReadOnly(true);
     }
 
     /** Cash and holdings as of one moment; prices are then applied outside the transaction. */
-    private record Snapshot(BigDecimal cash, List<Holding> holdings) {
+    private record Snapshot(BigDecimal cash, BigDecimal netDeposits, List<Holding> holdings) {
     }
 
     /** A holding with its (possibly missing) price already applied. */
@@ -85,12 +88,16 @@ public class PortfolioService {
                 .map(Holding::getRealizedPnl)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        BigDecimal overall = unrealized.add(realized);
         return new PortfolioResponse(
                 money(snapshot.cash()),
                 money(holdingsValue),
                 money(snapshot.cash().add(holdingsValue)),
                 money(unrealized),
                 money(realized),
+                money(snapshot.netDeposits()),
+                money(overall),
+                percent(overall, snapshot.netDeposits()),
                 rows);
     }
 
@@ -116,7 +123,7 @@ public class PortfolioService {
             BigDecimal cash = userRepository.findById(userId)
                     .orElseThrow(() -> new NotFoundException("User not found"))
                     .getCashBalance();
-            return new Snapshot(cash, holdingRepository.findByUserId(userId));
+            return new Snapshot(cash, ledgerRepository.netDeposits(userId), holdingRepository.findByUserId(userId));
         });
     }
 

@@ -283,6 +283,24 @@ class PerformanceApiTest {
     }
 
     @Test
+    @DisplayName("1W looks back seven days, ALL goes back to the day the account opened")
+    void weekAndAllRanges() throws Exception {
+        twoSymbolHistory(); // the account opened ten days ago
+
+        performance("1W").andExpect(status().isOk())
+                .andExpect(jsonPath("$.range").value("1W"))
+                .andExpect(jsonPath("$.from").value(today.minusDays(7).toString()));
+        // Seven days back is day -7: cash 99000 + 10 x 102 = 100020 on the first point.
+        performance("1W").andExpect(jsonPath("$.points[0].value").value("100020.00"))
+                .andExpect(jsonPath("$.points.length()").value(8));
+
+        performance("ALL").andExpect(status().isOk())
+                .andExpect(jsonPath("$.range").value("ALL"))
+                .andExpect(jsonPath("$.from").value(today.minusDays(10).toString()))
+                .andExpect(jsonPath("$.points.length()").value(11));
+    }
+
+    @Test
     @DisplayName("one user's history never includes another's, and it needs a token and a valid range")
     void scopedAndValidated() throws Exception {
         twoSymbolHistory();
