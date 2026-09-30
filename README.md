@@ -6,11 +6,17 @@ money. Everything runs against real market data, so the numbers are real and the
 **What it does**
 
 - Sign up and get a virtual `$100,000`.
-- Search stocks; see live quotes, candlestick charts, technical indicators (SMA, EMA, RSI,
-  MACD, Bollinger Bands) with plain-words readings, and company fundamentals.
+- A dense, dark trading workspace (with a light theme): a candlestick chart with volume, the
+  watchlist and an order ticket beside it, and holdings, open orders and history below. The panels
+  resize, collapse and remember their sizes, and become tabs on a phone.
+- Search any US stock with **Ctrl+K** (or **/**). **B** and **S** open the order ticket to buy or
+  sell the symbol on screen.
+- Live quotes (refreshed every 15 seconds), technical indicators (SMA, EMA, RSI, MACD, Bollinger
+  Bands) with plain-words readings, and company fundamentals.
 - Trade at market, or place limit and stop-loss orders that a scheduler fills when the price
   is reached. Optionally attach a stop-loss to a buy.
-- See holdings, unrealized and realized P&L, and allocation. See how the portfolio's value has moved over 1 month to a year, its best and worst day, and what each position has made or lost. Follow stocks on a watchlist.
+- A portfolio page: total value, day P&L and overall P&L, sortable holdings, allocation, how the
+  value has moved over a week to all time, and what each position has made or lost.
 - Set your own risk limits (max position size, max order value, default stop-loss).
 
 Indicator readings describe and never advise, and indicators are frequently wrong.
@@ -62,7 +68,7 @@ cd client && npm install && npm run dev # UI on :5173
 ## Tests
 
 ```bash
-cd server && ./mvnw test                # 141 tests, ~1 min, needs Docker running
+cd server && ./mvnw test                # 159 tests, ~1 min, needs Docker running
 cd client && npx tsc -b && npx eslint . # type-check and lint (there are no client unit tests yet)
 ```
 
@@ -77,18 +83,24 @@ With the backend and client running and real keys in `server/.env`:
 ```bash
 cd e2e && npm install && npm run install-browser
 npm run journey     # the whole app, step by step
-npm run a11y        # axe-core (WCAG 2.2 AA) at desktop and phone width, plus tap-target sizes
+npm run a11y        # axe-core (WCAG 2.2 AA) on every page, both themes, desktop and phone
 ```
 
-It signs up a fresh account and walks the whole app in a headless browser (search, chart,
-indicators, watchlist, market/limit/stop-loss orders, the scheduler filling one, a risk limit
-rejecting an order, reload, log out and back in), stopping at the first thing that is wrong.
+The journey signs up a fresh account and walks the whole app in a headless browser (the command
+palette, watching, indicators, keyboard trading, market/limit/stop-loss orders, the scheduler
+filling one, a risk limit rejecting an order, every page, the theme, resizing panels, a failing
+endpoint and its Retry, log out and back in, and the phone layout), stopping at the first thing
+that is wrong. The audit also checks the keyboard focus ring and, on a phone, every tap target.
+To audit an account that already has history, set `A11Y_EMAIL` and `A11Y_PASSWORD`.
 
 ## Design
 
-A printed-ledger look: warm paper, ink, hairline rules, one ink-blue accent, no shadows. Every colour,
-font and radius is a token in [`client/src/index.css`](client/src/index.css); the chart reads the same
-variables. The reasoning and the measured contrast are in [PROGRESS.md](PROGRESS.md#ui-redesign).
+A dense trading terminal: near-black panels, 1px hairlines, a 3px radius, no shadows or gradients, a
+13px body with tabular figures, green and red only for up and down (always with an arrow and a sign),
+one blue for primary actions. Dark by default, light behind a toggle. Every colour, size and radius is a
+token in [`client/src/index.css`](client/src/index.css); the charts read the same variables. Contrast
+was measured on every surface text can sit on, which is why a few colours differ from TradingView's
+own: see [PROGRESS.md](PROGRESS.md#trading-terminal-ui).
 
 ## Not done
 

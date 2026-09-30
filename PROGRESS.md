@@ -25,14 +25,14 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 
 Legend: ✅ done · 🟡 partial · ⬜ not started
 
-**141 server tests** pass against a real MySQL 8.4 (Testcontainers), and a 14-step browser journey in `e2e/` walks the whole app on the real stack. Every safety property (row lock, fill/cancel race, ledger reconciliation, parallel fetching, advice-free wording, the calculators) was checked to fail when deliberately broken.
+**159 server tests** pass against a real MySQL 8.4 (Testcontainers), and a 19-step browser journey in `e2e/` walks the whole app on the real stack. Every safety property (row lock, fill/cancel race, ledger reconciliation, parallel fetching, advice-free wording, the calculators) was checked to fail when deliberately broken.
 
 ---
 
 ## Running the tests
 
 ```bash
-cd server && ./mvnw test          # 141 tests, ~1 min, needs Docker running
+cd server && ./mvnw test          # 159 tests, ~1 min, needs Docker running
 cd client && npx tsc -b && npx eslint .    # type-check and lint
 cd e2e && npm run journey         # the whole app in a browser; needs the app running
 ```
@@ -453,7 +453,55 @@ Three gaps recorded along the way were closed at the end.
 
 `stocks.exchange` and `stocks.sector`, always empty after slice 2, are now filled the first time a stock's fundamentals are viewed (slice 8).
 
-## UI redesign
+## Trading terminal UI
+
+The UI was redone as a dense, dark, TradingView-style workspace. It replaces the "printed ledger" look below; no route or API call was changed, and the old pages' behaviour is all still there.
+
+**Direction.** A trading terminal: near-black blue panels, 1px hairlines, a 3px radius, no shadows and no gradients, a 13px body with 11px labels, tabular figures everywhere, IBM Plex Sans only. Green and red mean up and down and nothing else; the one blue is for primary actions. Dark is the default and a light theme sits behind a toggle that is set before first paint and remembered. Every token is a CSS variable in `client/src/index.css`, and the charts read the same variables and restyle in place when the theme changes.
+
+**Layout.**
+
+- **Shell:** a top bar (logo, a search box that opens the command palette, the theme switch, the account menu), a thin icon rail (a labelled bottom bar on a phone), and routed pages: Dashboard, Charts, Portfolio, Orders, Watchlist, and Risk limits (kept, under the account menu and at the foot of the rail).
+- **Dashboard:** the candlestick chart in the middle with volume along its foot and a crosshair legend (open, high, low, close, volume, change); the watchlist and the order ticket down the right; holdings, open orders and history along the bottom. The panels resize, collapse, remember their sizes, and become tabs on a phone.
+- **Portfolio:** a summary strip (total value, day P&L, overall P&L with amount and %, invested, cash), a sortable holdings table with day P&L and allocation, a donut whose legend doubles as the data table, and the performance chart over 1W, 1M, 1Y or all, with the result by position.
+- **Ctrl+K or /** opens the command palette (a native dialog, so focus is trapped and Esc works): a symbol, a page, or a theme switch. **B** and **S** open the ticket on that side with the cursor in the quantity box. The letters are ignored while typing, while a dialog is open and whenever a modifier is held.
+- **Data:** one provider holds the portfolio, orders, watchlist and day P&L for every page and refreshes them every 15s while the tab is visible, matching the server's quote cache, so a price changes on all pages at once. A price that changes is tinted for a second (with `prefers-reduced-motion` respected), and every change of direction carries an arrow and a sign as well as a colour. Every resource has its own skeleton, empty state, and error with a Retry beside it; a failed refresh keeps the last figures on screen.
+
+**Backend added for it** (the portfolio page needed numbers the API did not have):
+
+- `GET /api/portfolio/today`: **day P&L per position and in all.** The naive `quantity x (price - previous close)` is wrong for shares bought today, and in this app positions are very often opened today, so it is instead the change in a position's worth less the cash that went in or out on the way (`quantity now x price - quantity at the previous close x previous close - sum of today's fills`). "Today" is the session the quote belongs to, so it stays right when the market is shut. Tests: 9 sums worked out by hand plus 7 through the API; the naive formula fails 9 of them.
+- `GET /api/portfolio` gains `netDeposits` (read from the ledger, not assumed to be 100,000), `overallPnl` and `overallPnlPercent`. The first test could not tell a right denominator from a wrong one, because the figures rounded the same either way. It was replaced with one where the money put in, the cash and the total give 5.00%, 5.56% and 4.76%.
+- `GET /api/portfolio/performance` accepts `1W` and `ALL`.
+
+**Measured, and where it departs from TradingView.** Contrast was computed on all four surfaces text can sit on (canvas, panel, hovered row, selected row), and TradingView's own values failed: its muted grey is 4.2:1 on its dark canvas, its dark red is 3.9:1 on a selected row, and its light-theme green and red are 3.6:1 and 3.9:1 on white. So those steps are lighter or darker here (dark up `#2bb0a3` and down `#f66c68`; light up `#00796b` and down `#c62828`; muted `#9598a1`), and the blue as *text* on dark is `#6f9bff`, keeping `#2962ff` for the button behind white text.
+
+**Verified.**
+
+- **Server:** 159 tests.
+- **Browser journey:** 19 checks against the real stack and the real timer: the palette by Ctrl+K and by /; watching; indicators and their advice-free readings; B and S with the cursor landing in Shares; market, limit (a scheduler fill with no reload) and stop-loss orders; a risk limit rejecting an order; the three tabs of pages; the light theme surviving a reload; collapsing and dragging the panels and the size surviving a reload; a failed refresh keeping the table while a failed first load shows an error with a working Retry; log out and back in; the phone layout.
+- **Accessibility audit** (`npm run a11y`): axe-core (WCAG 2.2 A and AA plus best practice) on login, signup and every signed-in page, in both themes at desktop and phone width, with the palette open and with indicators on; 40 Tab stops in each theme each showing a 2px focus ring; and every control on every phone page at least 44px tall. **On an account with real history: 41 checks, 0 violations.**
+
+**Bugs the checks found, all fixed.**
+
+- **A late, older response overwrote a newer one.** A poll that began before a click could answer after the reload that followed it, putting the old data back: the Watch button flipped back a moment after it had worked. Every request now takes a number and only the latest answer is applied (`useResource` and `useQuote`). The journey reproduces it deterministically (holds a refresh in flight, lets the server answer it with an empty list, does the Watch, then delivers the old answer late), and fails when the guard is removed.
+- **The root font size was 13px.** Every size in the app is in `rem`, so 12px labels rendered at 9.75px and a "44px" tap target at 36px. The root is back at 16px and the 13px body comes from the type scale.
+- **Contrast on selected rows** (above), a chart legend `<dl>` with a `<dd>` and no `<dt>`, no `<h1>` on the dashboard, and Buy and Sell buttons 24px tall that axe read as 22.9 (now 28px).
+- **The order ticket did not fit in its default panel.** At a 900px window it scrolled, and placing an order (which adds a notice) scrolled it a few pixels further, clipping the top of the Buy and Sell buttons; axe reported that as a target-size failure. The ticket now gets more of the rail by default (`minSize` 320px) and shows everything without scrolling. Segmented buttons and chips are 28px, comfortably over WCAG 2.2's 24px.
+- The audit itself raced the "checking your session" placeholder, and both scripts waited on a Google Fonts request that can stall the page's `load` event; they now wait for the page's own heading and for `domcontentloaded`.
+
+**One flake, not explained.** A single journey run timed out on step 8 (waiting up to 70s for the scheduler's fill to show in the holdings). The database showed the order filled within a second or two of being placed. A separate script that polls the API and the UI every 5s saw the fill in the UI about 15s after it happened, and the very next full journey run passed all 19 checks. The backend log shows Finnhub I/O errors around that time, so it is recorded as a flake and not investigated further.
+
+**Where this differs from what was asked.**
+
+- **No mock data file.** The backend is connected, and every figure comes from it.
+- **"Live" is a 15-second refresh, not a websocket.** The server caches quotes for 15s to stay inside Finnhub's 60 calls a minute, so polling faster would only repeat the last price. The price flash therefore fires when the real price changes.
+- **Dense and 44px targets:** rows and controls are 24 to 28px with a mouse and 44px with a finger (`pointer: coarse`), the one design that satisfies both.
+- **Timeframes** are 1D, 1W, 1M, 6M, 1Y and 5Y, a superset of the four asked for; the portfolio chart has exactly 1W, 1M, 1Y and All.
+- **The donut has at most six segments** (four named holdings, the rest folded into Other, and cash) and its legend carries every value.
+
+**Not done.** No websocket streaming. No client unit tests. The Indicators menu is a native `<details>` and only closes when its summary is pressed again. The production bundle is over 500 kB (the panel library, the chart and the palette are not split out). On a phone the chart legend can crowd the price axis.
+
+## UI redesign, first pass (superseded by the terminal UI above)
 
 The first UI was a single 896px column of eight identical white `rounded-xl shadow-sm` cards on grey, in the browser's default font, with a grab-bag of slate, green and red and black buttons for everything. The total value carried the same weight as the risk limits, and on a wide screen the trading workspace sat mid-page in a narrow column. It was redone without changing any route, component contract or behaviour.
 

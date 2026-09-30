@@ -73,17 +73,29 @@ calls `trading`. `common` and `config` are called by everyone and call nobody.
 
 ```
 client/src/
-  pages/        Login, Signup, Dashboard, Stock, Orders, Watchlist
-  components/   Chart, OrderForm, HoldingsTable, IndicatorPanel, ...
+  pages/        Login, Signup, and the signed-in pages: Dashboard (the workspace), Charts,
+                Portfolio, Orders, Watchlist, Risk
+  components/
+    shell/      Top bar, icon rail, bottom bar, command palette, account menu, shortcuts
+    workspace/  ChartPanel, WatchlistTable, OrderTicket, PositionsTabs, resizable-panel parts
+    portfolio/  SummaryStrip, HoldingsTable, OrdersTable, AllocationDonut, PerformancePanel
+    ui/         Icon, Tabs, PriceCell (flash), Change (arrow + sign), skeleton/error/empty states
+  data/         TradingDataProvider: the portfolio, orders, watchlist and day P&L, shared and polled
   api/          Axios instance + one typed module per backend module
-  context/      AuthContext (token, current user)
-  hooks/        useQuote, usePortfolio, ...
+  context/      Auth (token, user) and Theme (dark or light)
+  lib/          Money formatting, chart theme, sorting, the selected symbol and live quote hooks
   types/        Shared response/request types mirroring backend DTOs
 ```
 
 Routing is React Router. A `<ProtectedRoute>` wrapper redirects to `/login` when no
-token is present. The Axios interceptor attaches the JWT and, on a `401`, clears the
+token is present; everything behind it sits in one `Shell`, which owns the data, the search
+palette and the shortcuts. The Axios interceptor attaches the JWT and, on a `401`, clears the
 token and bounces to login.
+
+The selected symbol lives in the URL (`?symbol=`), so a link, a reload and the back button keep
+it. Data that several pages show is loaded once by the provider and refreshed every 15s while the
+tab is visible, which matches the server's quote cache. Every request in a resource takes a number
+and only the latest answer is applied, so a slow older response can never overwrite a newer one.
 
 ## 5. Data model
 
@@ -187,6 +199,7 @@ login.
 | Portfolio | GET | `/api/portfolio` |
 | Portfolio | GET | `/api/portfolio/allocation` |
 | Portfolio | GET | `/api/portfolio/performance?range=` (built from trades, so it lives in `trading`) |
+| Portfolio | GET | `/api/portfolio/today` (day P&L; needs today's fills, so it lives in `trading`) |
 | Watchlist | GET / POST | `/api/watchlist` |
 | Watchlist | DELETE | `/api/watchlist/{symbol}` |
 | Risk | GET / PUT | `/api/risk/settings` |
