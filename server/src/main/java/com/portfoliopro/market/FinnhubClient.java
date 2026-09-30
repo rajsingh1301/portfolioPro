@@ -18,7 +18,12 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * The only thing in the app that talks to Finnhub.
@@ -46,6 +51,7 @@ public class FinnhubClient {
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .build();
 
+    private final ExecutorService parallel = Executors.newVirtualThreadPerTaskExecutor();
     private final RestClient restClient;
     private final String apiKey;
 
@@ -81,9 +87,24 @@ public class FinnhubClient {
      */
     @Cacheable(FUNDAMENTALS_CACHE)
     public Fundamentals fundamentals(String symbol) {
-        JsonNode profile = get("/stock/profile2", uri -> uri.queryParam("symbol", symbol));
-        JsonNode metrics = get("/stock/metric", uri -> uri.queryParam("symbol", symbol).queryParam("metric", "all"))
-                .path("metric");
+        // Independent calls, so they go out together rather than one after the other.
+        CompletableFuture<JsonNode> profileCall = CompletableFuture.supplyAsync(
+                () -> get("/stock/profile2", uri -> uri.queryParam("symbol", symbol)), parallel);
+        CompletableFuture<JsonNode> metricCall = CompletableFuture.supplyAsync(
+                () -> get("/stock/metric", uri -> uri.queryParam("symbol", symbol).queryParam("metric", "all")), parallel);
+        JsonNode profile;
+        JsonNode metrics;
+        try {
+            profile = profileCall.join();
+            metrics = metricCall.join().path("metric");
+        } catch (java.util.concurrent.CompletionException ex) {
+            // get() throws the app's own exceptions; hand the original on unwrapped so the
+            // handler still maps it to 503.
+            if (ex.getCause() instanceof RuntimeException cause) {
+                throw cause;
+            }
+            throw ex;
+        }
         BigDecimal marketCapMillions = decimal(profile, "marketCapitalization");
         if (marketCapMillions == null) {
             marketCapMillions = decimal(metrics, "marketCapitalization");
@@ -108,6 +129,7 @@ public class FinnhubClient {
         // `exchange=US` keeps the results to what the free tier can actually quote.
         JsonNode body = get("/search", uri -> uri.queryParam("q", query).queryParam("exchange", "US"));
         List<StockSearchResult> results = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         for (JsonNode node : body.path("result")) {
             String symbol = text(node, "symbol");
             // Common Stock only: the free tier cannot quote options or warrants, and a
@@ -115,10 +137,14 @@ public class FinnhubClient {
             if (symbol == null || symbol.contains(".") || !"Common Stock".equals(text(node, "type"))) {
                 continue;
             }
+            // Finnhub can list one symbol more than once (JPM comes back twice). A symbol is
+            // the primary key of `stocks`, so a repeat would be inserted twice in one batch.
+            String normalized = symbol.toUpperCase(java.util.Locale.ROOT);
+            if (!seen.add(normalized)) {
+                continue;
+            }
             String name = text(node, "description");
-            results.add(new StockSearchResult(
-                    symbol.toUpperCase(java.util.Locale.ROOT),
-                    name == null ? symbol : name));
+            results.add(new StockSearchResult(normalized, name == null ? symbol : name));
             if (results.size() == MAX_SEARCH_RESULTS) {
                 break;
             }

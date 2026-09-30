@@ -214,6 +214,25 @@ class MarketApiTest {
     }
 
     @Test
+    @DisplayName("a symbol Finnhub lists twice, in any case, appears once and is stored once (JPM came back twice)")
+    void duplicateSymbolsInOneSearch() throws Exception {
+        finnhub.respondWith(200, """
+                {"count":3,"result":[
+                  {"description":"JPMorgan Chase & Co","displaySymbol":"JPM","symbol":"JPM","type":"Common Stock"},
+                  {"description":"JPMorgan Chase & Co","displaySymbol":"JPM","symbol":"JPM","type":"Common Stock"},
+                  {"description":"JPMorgan Chase & Co","displaySymbol":"jpm","symbol":"jpm","type":"Common Stock"}
+                ]}""");
+
+        mockMvc.perform(authed(get("/api/stocks/search").param("q", "jpm")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].symbol").value("JPM"));
+
+        assertThat(stockRepository.count()).isEqualTo(1);
+        assertThat(stockRepository.findById("JPM").orElseThrow().getCreatedAt()).isNotNull();
+    }
+
+    @Test
     @DisplayName("searching twice does not duplicate rows or call upstream twice")
     void repeatedSearchIsIdempotent() throws Exception {
         finnhub.respondWith(200, """
