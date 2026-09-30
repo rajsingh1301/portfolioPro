@@ -1,6 +1,5 @@
-package com.portfoliopro.trading;
+package com.portfoliopro.portfolio;
 
-import com.portfoliopro.common.OrderSide;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,7 +13,11 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** One row of the cash ledger. `amount` is signed: negative for a buy, positive for a sell. */
+/**
+ * One row of the cash ledger. `amount` is signed: positive for a deposit or a sell,
+ * negative for a buy. Every change to a cash balance writes one, so the amounts sum to
+ * the balance and each `balance_after` is the running total up to that row.
+ */
 @Entity
 @Table(name = "cash_transactions")
 public class CashTransaction {
@@ -31,7 +34,7 @@ public class CashTransaction {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private OrderSide type;
+    private CashTransactionType type;
 
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;
@@ -46,7 +49,7 @@ public class CashTransaction {
         // for JPA
     }
 
-    public CashTransaction(Long userId, Long orderId, OrderSide type, BigDecimal amount, BigDecimal balanceAfter) {
+    public CashTransaction(Long userId, Long orderId, CashTransactionType type, BigDecimal amount, BigDecimal balanceAfter) {
         this.userId = userId;
         this.orderId = orderId;
         this.type = type;
@@ -59,8 +62,24 @@ public class CashTransaction {
         this.createdAt = Instant.now();
     }
 
+    public Long getUserId() {
+        return userId;
+    }
+
+    public Long getOrderId() {
+        return orderId;
+    }
+
+    public CashTransactionType getType() {
+        return type;
+    }
+
     public BigDecimal getAmount() {
         return amount;
+    }
+
+    public java.time.Instant getCreatedAt() {
+        return createdAt;
     }
 
     public BigDecimal getBalanceAfter() {

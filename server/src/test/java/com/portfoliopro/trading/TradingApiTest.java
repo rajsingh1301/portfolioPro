@@ -3,6 +3,8 @@ package com.portfoliopro.trading;
 import com.portfoliopro.auth.User;
 import com.portfoliopro.auth.UserRepository;
 import com.portfoliopro.market.StubFinnhub;
+import com.portfoliopro.portfolio.CashTransactionRepository;
+import com.portfoliopro.portfolio.CashTransactionType;
 import com.portfoliopro.portfolio.Holding;
 import com.portfoliopro.portfolio.HoldingRepository;
 import com.portfoliopro.risk.RiskSettings;
@@ -93,7 +95,8 @@ class TradingApiTest {
         assertThat(holding.getQuantity()).isEqualTo(10);
         assertThat(holding.getAvgPrice()).isEqualByComparingTo("100");
         assertThat(tradeRepository.findByUserIdOrderByIdDesc(userId)).hasSize(1);
-        var ledger = cashRepository.findAll();
+        // Signup wrote the opening deposit; the buy is the one row after it.
+        var ledger = cashRepository.findAll().stream().filter(c -> c.getType() != CashTransactionType.DEPOSIT).toList();
         assertThat(ledger).hasSize(1);
         assertThat(ledger.get(0).getAmount()).isEqualByComparingTo("-1000");
         assertThat(ledger.get(0).getBalanceAfter()).isEqualByComparingTo("99000");
@@ -149,7 +152,7 @@ class TradingApiTest {
         assertThat(orders.get(0).getStatus()).isEqualTo(OrderStatus.REJECTED);
         assertThat(orders.get(0).getRejectReason()).isEqualTo("not enough shares");
         assertThat(tradeRepository.count()).isZero();
-        assertThat(cashRepository.count()).isZero();
+        assertThat(cashRepository.findAll()).allMatch(c -> c.getType() == CashTransactionType.DEPOSIT);
         assertThat(holdingRepository.count()).isZero();
         assertThat(cash()).isEqualByComparingTo("100000");
     }

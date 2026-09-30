@@ -73,18 +73,51 @@ class AuthApiTest {
     }
 
     @Test
-    @DisplayName("signup rejects a padded email that login would have accepted")
-    void signupRejectsSurroundingWhitespace() throws Exception {
-        // Documents a real asymmetry rather than asserting what would be nicer:
-        // SignupRequest carries @Email, which fails before AuthService can trim,
-        // while LoginRequest carries only @NotBlank and so tolerates the padding.
+    @DisplayName("signup and login treat a padded, mixed-case email the same way: one account, whichever way it is typed")
+    void emailIsNormalisedTheSameAtSignupAndLogin() throws Exception {
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body("  padded@example.com  ", "Password123")))
+                        .content(body("  Padded@Example.com  ", "Password123")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.user.email").value("padded@example.com"));
+
+        for (String typed : new String[] {"padded@example.com", "  PADDED@example.com", "padded@example.com   "}) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body(typed, "Password123")))
+                    .andExpect(status().isOk());
+        }
+        // The same address typed differently is the same account, so it is a duplicate.
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(" PADDED@example.com ", "Password123")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_USED"));
+        assertThat(userRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("an email that is only whitespace is still refused, and a password's whitespace is left alone")
+    void blankEmailRefusedAndPasswordUntouched() throws Exception {
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("     ", "Password123")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.email").isNotEmpty());
 
-        assertThat(userRepository.count()).isZero();
+        // A password with leading and trailing spaces must log in only with those spaces.
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("spaces@example.com", "  Pass word 1  ")))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("spaces@example.com", "Pass word 1")))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("spaces@example.com", "  Pass word 1  ")))
+                .andExpect(status().isOk());
     }
 
     @Test

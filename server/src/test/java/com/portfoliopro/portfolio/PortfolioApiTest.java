@@ -22,6 +22,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import java.io.IOException;
 import java.math.BigDecimal;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -158,6 +160,28 @@ class PortfolioApiTest {
                 .andExpect(jsonPath("$.holdings[0].marketValue").value("1000.00"))
                 .andExpect(jsonPath("$.totalValue").value("100000.00"))
                 .andExpect(jsonPath("$.unrealizedPnl").value("0.00"));
+    }
+
+    @Test
+    @DisplayName("a portfolio's quotes are fetched together, not one after another")
+    void quotesAreFetchedInParallel() throws Exception {
+        String[] symbols = {"AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "GOOGL"};
+        for (String symbol : symbols) {
+            price(symbol, "100.00");
+            order(symbol, "BUY", 1);
+        }
+        clearCaches();       // every quote now has to come from upstream
+        finnhub.resetCounts();
+        finnhub.delayResponses(250);
+
+        long started = System.nanoTime();
+        portfolio().andExpect(jsonPath("$.holdings.length()").value(6));
+        long millis = (System.nanoTime() - started) / 1_000_000;
+
+        assertThat(finnhub.requestCount()).isEqualTo(6);
+        assertThat(finnhub.maxConcurrentRequests()).as("requests in flight at once").isGreaterThan(1);
+        // Six one after another would take at least 1,500ms; together they take about one delay.
+        assertThat(millis).isLessThan(1200);
     }
 
     @Test

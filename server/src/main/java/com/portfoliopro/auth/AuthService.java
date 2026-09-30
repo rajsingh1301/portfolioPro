@@ -7,6 +7,9 @@ import com.portfoliopro.auth.dto.UserResponse;
 import com.portfoliopro.common.exception.EmailAlreadyUsedException;
 import com.portfoliopro.common.exception.InvalidCredentialsException;
 import com.portfoliopro.common.exception.NotFoundException;
+import com.portfoliopro.portfolio.CashTransaction;
+import com.portfoliopro.portfolio.CashTransactionRepository;
+import com.portfoliopro.portfolio.CashTransactionType;
 import com.portfoliopro.risk.RiskSettings;
 import com.portfoliopro.risk.RiskSettingsRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,23 +28,26 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RiskSettingsRepository riskSettingsRepository;
+    private final CashTransactionRepository cashTransactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public AuthService(
             UserRepository userRepository,
             RiskSettingsRepository riskSettingsRepository,
+            CashTransactionRepository cashTransactionRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService) {
         this.userRepository = userRepository;
         this.riskSettingsRepository = riskSettingsRepository;
+        this.cashTransactionRepository = cashTransactionRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
 
     /**
-     * Creates the account, its opening balance and its risk settings in one
-     * transaction, so a user can never exist without the limits slice 3 expects.
+     * Creates the account, its opening balance (and the ledger row for it) and its
+     * risk settings in one transaction, so a user can never exist without the limits slice 3 expects.
      */
     @Transactional
     public AuthResponse signup(SignupRequest request) {
@@ -59,6 +65,10 @@ public class AuthService {
             throw new EmailAlreadyUsedException();
         }
         riskSettingsRepository.save(RiskSettings.defaultsFor(user.getId()));
+        // The opening balance is a deposit like any other movement of cash, so the ledger
+        // adds up to the balance from the first row.
+        cashTransactionRepository.save(new CashTransaction(
+                user.getId(), null, CashTransactionType.DEPOSIT, STARTING_CASH, STARTING_CASH));
 
         return AuthResponse.of(jwtService.issue(user), jwtService.getExpiryMinutes(), UserResponse.from(user));
     }

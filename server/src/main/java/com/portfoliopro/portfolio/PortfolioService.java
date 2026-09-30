@@ -16,6 +16,9 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 public class PortfolioService {
@@ -26,6 +29,7 @@ public class PortfolioService {
     private final HoldingRepository holdingRepository;
     private final MarketService marketService;
     private final TransactionTemplate readOnly;
+    private final ExecutorService quoteExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     public PortfolioService(
             UserRepository userRepository,
@@ -122,21 +126,25 @@ public class PortfolioService {
      * should not hide a portfolio the user can otherwise see.
      */
     private List<Valued> value(List<Holding> holdings) {
-        List<Valued> valued = new ArrayList<>();
-        for (Holding holding : holdings) {
-            if (holding.getQuantity() == 0) {
-                continue;
-            }
-            BigDecimal price = null;
-            try {
-                price = marketService.currentPrice(holding.getSymbol());
-            } catch (ApiException ex) {
-                // Left null: reported to the client as an unpriced holding.
-            }
-            BigDecimal marketValue = price == null ? cost(holding) : value(price, holding.getQuantity());
-            valued.add(new Valued(holding, price, marketValue));
+        List<Holding> open = holdings.stream().filter(holding -> holding.getQuantity() != 0).toList();
+        // A cold cache costs one Finnhub call per symbol, each up to the client timeout.
+        // Asked one after another, a portfolio of many positions would load far too slowly,
+        // so they go out together on virtual threads, which are cheap when all they do is wait.
+        List<CompletableFuture<Valued>> pending = open.stream()
+                .map(holding -> CompletableFuture.supplyAsync(() -> price(holding), quoteExecutor))
+                .toList();
+        return pending.stream().map(CompletableFuture::join).toList();
+    }
+
+    private Valued price(Holding holding) {
+        BigDecimal price = null;
+        try {
+            price = marketService.currentPrice(holding.getSymbol());
+        } catch (ApiException ex) {
+            // Left null: reported to the client as an unpriced holding.
         }
-        return valued;
+        BigDecimal marketValue = price == null ? cost(holding) : value(price, holding.getQuantity());
+        return new Valued(holding, price, marketValue);
     }
 
     private static BigDecimal cost(Holding holding) {

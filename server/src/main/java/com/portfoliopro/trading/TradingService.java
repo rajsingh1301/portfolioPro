@@ -8,6 +8,9 @@ import com.portfoliopro.common.exception.NotFoundException;
 import com.portfoliopro.common.exception.OrderNotPendingException;
 import com.portfoliopro.common.exception.OrderRejectedException;
 import com.portfoliopro.market.MarketService;
+import com.portfoliopro.portfolio.CashTransaction;
+import com.portfoliopro.portfolio.CashTransactionRepository;
+import com.portfoliopro.portfolio.CashTransactionType;
 import com.portfoliopro.portfolio.Holding;
 import com.portfoliopro.portfolio.HoldingRepository;
 import com.portfoliopro.risk.RiskCheck;
@@ -239,7 +242,8 @@ public class TradingService {
         holdingRepository.save(holding);
         tradeRepository.save(new Trade(order, price));
         cashTransactionRepository.save(
-                new CashTransaction(user.getId(), order.getId(), order.getSide(), signed, user.getCashBalance()));
+                new CashTransaction(
+                        user.getId(), order.getId(), CashTransactionType.of(order.getSide()), signed, user.getCashBalance()));
         order.fill();
 
         if (order.getSide() == OrderSide.BUY && order.isAttachStopLoss()) {

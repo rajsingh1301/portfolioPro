@@ -16,4 +16,13 @@ public record SignupRequest(
         @NotBlank(message = "Password is required")
         @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters")
         String password) {
+
+    /**
+     * The email is trimmed as the request is built, so validation sees what will be
+     * stored. Otherwise {@code @Email} rejects a padded address that login would accept.
+     * The password is never touched: whitespace in it is part of it.
+     */
+    public SignupRequest {
+        email = email == null ? null : email.trim();
+    }
 }
