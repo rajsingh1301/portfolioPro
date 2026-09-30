@@ -21,7 +21,7 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 | 6 | Pending orders (limit, stop-loss) | ✅ Done |
 | 7 | Watchlist | ✅ Done |
 | 8 | Analysis (indicators, fundamentals) | ✅ Done |
-| 9 | Risk settings UI | ⬜ Not started |
+| 9 | Risk settings UI | ✅ Done |
 
 Legend: ✅ done · 🟡 partial · ⬜ not started
 
@@ -375,6 +375,37 @@ they say in plain words, and see the company's headline ratios.
 - `1D` and `1W` indicators are computed on 80 and 70 candles, enough for every window here but thin for a 50-bar average.
 - The 20/50 average crossing is reported only if it happened within the last five bars.
 
+## Slice 9 — Risk settings ✅
+
+**Goal:** a user can see and adjust the limits that gate their orders, within sensible bounds.
+
+**Backend**
+
+- [x] `GET /api/risk/settings`: the three limits, plus the bounds and the defaults, so the screen never hard-codes them
+- [x] `PUT /api/risk/settings`: a full replace (all three limits every time). An out-of-range, missing or over-precise value is `400` naming the field and what is allowed; nothing is saved
+- [x] Bounds in one place (`RiskLimits`): max position size `1%` to `100%`, max order value `$1` to `$1,000,000`, default stop-loss `0.5%` to `50%`. Defaults are unchanged (`20%`, `$5,000`, `5%`)
+- [x] The update locks the user row first, so it waits for any order in flight: once it returns, nothing is still being checked under the old limits
+
+**Frontend**
+
+- [x] A "Risk limits" card: three fields showing their allowed range and, in words, what the saved value means ("Reject any single order worth more than $5,000"); the server's own message beside a bad field; Save (disabled until something changed) and Reset to defaults
+
+**Tests:** 115 in total (11 new, in `RiskSettingsApiTest`). Beyond validation and scoping, they show the limits really govern trading: a lowered order limit rejects an order that used to pass, a lowered position limit rejects a concentrated buy, the stop-loss percentage moves an attached stop, and **a pending order is judged by the limits in force when it triggers**. A deterministic test holds the user lock in another thread and shows the update waits for it. Checked to fail when broken: removing the lock fails the lock test; removing an upper bound fails the bounds test.
+
+**Verified** in a browser with real Finnhub: defaults shown; `2000000` refused with the server's message beside the field; the order limit lowered to `$250`, after which a real `$330` AAPL order was rejected ("order too large", shown in the panel and in the order history); Reset restored `$5,000`, and the same order then filled.
+
+**Decisions made building it**
+
+- The bounds are a proposal (the architecture only said "within bounds"). The lower bounds stop a zero or negative value silently blocking every trade; the upper ones keep figures inside their columns.
+- Tightening a limit takes effect for the next order and for pending orders when they trigger; filled trades are untouched.
+
+
+### A slice 2 bug found while checking slice 9
+
+Searching `jpm` returned `500`. Finnhub lists `JPM` twice, and the search stored both in one batch. Spring Data's `save` on an entity with an assigned ID is a merge, so the second copy overwrote the first row's `created_at` with null and MySQL refused it. No test had a duplicate in it. Fixed at the source (`FinnhubClient.search` de-duplicates on the upper-cased symbol), with a regression test that reproduces the original `500` when the fix is removed. Found only because a screenshot showed "Loading fundamentals…" and I chased it.
+
+While there, the two Finnhub calls behind fundamentals (profile and metrics) now run in parallel: a cold load fell from about 3s to about 0.7s.
+
 ## Decisions made
 
 | Date | Decision | Note |
@@ -410,6 +441,7 @@ they say in plain words, and see the company's headline ratios.
 - **The scheduler assumes one running instance.** Two would both try to fill an order; the lock and the pending check keep that safe (the loser does nothing), but they would double the Finnhub calls.
 - **Every symbol with a pending order costs a Finnhub call each time its 15s quote expires**, so many distinct pending symbols can approach the 60/min limit.
 - **Pending buys do not reserve cash** (see slice 6).
+- **`save()` on a new entity with an assigned ID is a merge**, which overwrites an existing row with the new object's nulls (the JPM bug). `Stock`, `Holding` and `WatchlistEntry` all have assigned IDs; the callers check for an existing row first, but a future caller that does not will hit it again.
 - **The portfolio fetches its quotes one after another.** The watchlist does it in parallel; a portfolio with many holdings and a cold cache would be slow, and could use the same approach.
 - **No frontend tests at all.** `tsc` and ESLint are the only checks on the client.
 - **`stocks.exchange` and `stocks.sector` are always null.** Finnhub's search payload

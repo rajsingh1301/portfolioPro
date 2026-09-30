@@ -152,3 +152,19 @@ export interface Fundamentals {
   week52Low?: string
   beta?: string
 }
+
+export interface LimitRange {
+  min: string
+  max: string
+}
+
+/** Mirrors com.portfoliopro.risk.dto.RiskSettingsResponse. The three limits are decimal strings. */
+export interface RiskSettings {
+  maxPositionPct: string
+  maxOrderValue: string
+  defaultStopLossPct: string
+  bounds: { maxPositionPct: LimitRange; maxOrderValue: LimitRange; defaultStopLossPct: LimitRange }
+  defaults: { maxPositionPct: string; maxOrderValue: string; defaultStopLossPct: string }
+}
+
+export type RiskLimitsInput = Pick<RiskSettings, 'maxPositionPct' | 'maxOrderValue' | 'defaultStopLossPct'>

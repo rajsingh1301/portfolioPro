@@ -8,6 +8,8 @@ import type {
   Order,
   PlaceOrderRequest,
   Portfolio,
+  RiskLimitsInput,
+  RiskSettings,
   Quote,
   StockSearchResult,
   Trade,
@@ -80,5 +82,15 @@ export async function fetchIndicators(symbol: string, range: CandleRange): Promi
 
 export async function fetchFundamentals(symbol: string): Promise<Fundamentals> {
   const { data } = await api.get<Fundamentals>(`/stocks/${encodeURIComponent(symbol)}/fundamentals`)
+  return data
+}
+
+export async function fetchRiskSettings(): Promise<RiskSettings> {
+  const { data } = await api.get<RiskSettings>('/risk/settings')
+  return data
+}
+
+export async function saveRiskSettings(limits: RiskLimitsInput): Promise<RiskSettings> {
+  const { data } = await api.put<RiskSettings>('/risk/settings', limits)
   return data
 }

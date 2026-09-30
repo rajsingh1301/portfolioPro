@@ -217,7 +217,7 @@ Each slice is built and verified end-to-end (backend + UI) before the next begin
 5. **Charts** — candles endpoint + Lightweight Charts
 6. **Pending orders** — limit, stop-loss, the scheduler
 7. **Watchlist**
-8. **Analysis** — ta4j indicators, fundamentals card ← *current*
-9. **Risk settings UI**
+8. **Analysis** — ta4j indicators, fundamentals card
+9. **Risk settings UI** ← *current*
 
 Slice 3 is the hard one; slices 1–2 exist mainly to make it testable.

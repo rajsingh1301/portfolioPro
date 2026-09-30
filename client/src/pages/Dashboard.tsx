@@ -13,6 +13,7 @@ import {
 import { errorMessage } from '../api/client'
 import { OrderHistory } from '../components/OrderHistory'
 import { PortfolioOverview } from '../components/PortfolioOverview'
+import { RiskSettingsCard } from '../components/RiskSettingsCard'
 import { TradePanel } from '../components/TradePanel'
 import { WatchlistCard } from '../components/WatchlistCard'
 import { useAuth } from '../context/useAuth'
@@ -161,6 +162,7 @@ export function Dashboard() {
             requested={requested}
           />
           <OrderHistory orders={orders} trades={trades} onCancel={(id) => void handleCancel(id)} />
+          <RiskSettingsCard />
         </div>
       </main>
     </div>
