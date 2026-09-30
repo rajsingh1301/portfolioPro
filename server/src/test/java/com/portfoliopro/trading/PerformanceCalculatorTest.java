@@ -145,8 +145,22 @@ class PerformanceCalculatorTest {
                 List.of(fill(MON, "AAPL", 10, "100")),
                 Map.of());
 
-        assertThat(values(result)).containsExactly("MON 100000", "WED 100000");
+        // Every calendar day, so the estimate is drawn as flat rather than as a slant between event days.
+        assertThat(values(result)).containsExactly("MON 100000", "TUE 100000", "WED 100000");
         assertThat(result.estimated()).containsExactly("AAPL");
+    }
+
+    @Test
+    @DisplayName("a symbol with real history leaves weekends out; only one without gets every calendar day")
+    void calendarDaysOnlyWhenNeeded() {
+        var withHistory = PerformanceCalculator.compute(
+                FRI, SUN, List.of(ledger(FRI, "99000")), List.of(fill(FRI, "AAPL", 10, "100")),
+                Map.of("AAPL", closes(FRI, "100")));
+        assertThat(withHistory.points()).extracting(Point::date).containsExactly(FRI, SUN);
+
+        var without = PerformanceCalculator.compute(
+                FRI, SUN, List.of(ledger(FRI, "99000")), List.of(fill(FRI, "AAPL", 10, "100")), Map.of());
+        assertThat(without.points()).extracting(Point::date).containsExactly(FRI, SAT, SUN);
     }
 
     @Test

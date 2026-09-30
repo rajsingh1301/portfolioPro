@@ -17,6 +17,10 @@ import java.util.TreeSet;
  * the cash ledger says how much cash there was, the trades say what was held, and daily
  * closes say what it was worth. Pure, so it can be checked against sums done by hand.
  *
+ * <p>Days: the ends of the window, every day something happened, and every day a price is
+ * known, so weekends and holidays are simply absent for a symbol with real history. A symbol
+ * with none gets every calendar day (see below).
+ *
  * <p>Nothing is stored per day. History is always re-derived from the ledger and the trades,
  * which are the source of truth, so it can never disagree with them.
  */
@@ -61,6 +65,14 @@ public final class PerformanceCalculator {
         ledger.forEach(entry -> addIfInWindow(days, entry.date(), from, to));
         fills.forEach(fill -> addIfInWindow(days, fill.date(), from, to));
         closes.values().forEach(series -> series.keySet().forEach(day -> addIfInWindow(days, day, from, to)));
+        // A symbol with no price history gives no trading days to hang points on. Without a point
+        // for every day, the chart would draw a slanting line between two event days across which
+        // the estimated value does not actually move. So such a window gets every calendar day.
+        if (fills.stream().anyMatch(fill -> closes.get(fill.symbol()) == null)) {
+            for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
+                days.add(day);
+            }
+        }
 
         Map<String, Long> held = new HashMap<>();
         Map<String, BigDecimal> lastTradePrice = new HashMap<>();
