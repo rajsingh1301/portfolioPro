@@ -168,3 +168,40 @@ export interface RiskSettings {
 }
 
 export type RiskLimitsInput = Pick<RiskSettings, 'maxPositionPct' | 'maxOrderValue' | 'defaultStopLossPct'>
+
+export const PERFORMANCE_RANGES = ['1M', '3M', '6M', '1Y'] as const
+export type PerformanceRange = (typeof PERFORMANCE_RANGES)[number]
+
+/** Mirrors com.portfoliopro.trading.dto.PerformanceResponse. Dates are UTC calendar days, money is a string. */
+export interface Performance {
+  range: PerformanceRange
+  from: string
+  to: string
+  points: { date: string; value: string; cash: string; invested: string }[]
+  summary: {
+    startValue: string
+    endValue: string
+    change: string
+    changePercent: string
+    bestDay?: DayMove
+    worstDay?: DayMove
+  }
+  positions: PositionResult[]
+  /** Symbols valued at their trade price on some day, because no price history was available. */
+  estimatedSymbols: string[]
+}
+
+export interface DayMove {
+  date: string
+  change: string
+  changePercent: string
+}
+
+export interface PositionResult {
+  symbol: string
+  open: boolean
+  quantity: number
+  realizedPnl: string
+  unrealizedPnl?: string
+  totalPnl: string
+}

@@ -75,6 +75,17 @@ assert.match(await section('Holdings').innerText(), /AAPL\s+3/)
 assert.match(await section('Allocation').innerText(), /AAPL[\s\S]*Cash/)
 ok(`market buy 3 -> cash $${cashAfter}, invested $${investedAfter}, total value ~unchanged`)
 
+// 5b. performance: an account with no history says so plainly, and the position is listed
+const performance = section('Performance')
+await performance.locator('text=Your value will start moving').waitFor()
+const results = section('Result by position')
+await results.locator('li:has-text("AAPL")').waitFor()
+assert.match(await results.innerText(), /AAPL[\s\S]*3 held/)
+await performance.locator('[aria-label="Performance range"] button', { hasText: /^1Y$/ }).click()
+assert.equal(await performance.locator('[aria-label="Performance range"] button[aria-pressed=true]').innerText(), '1Y')
+await performance.locator('text=Your value will start moving').waitFor()
+ok('performance -> a brand-new account says so plainly; the position is under Result by position; the range switches')
+
 // 6. limit order far below market waits, then cancels
 await p.locator('[aria-label="Order type"] button', { hasText: /^Limit$/ }).click()
 await p.fill('#quantity', '1'); await p.fill('#price', '50.00')

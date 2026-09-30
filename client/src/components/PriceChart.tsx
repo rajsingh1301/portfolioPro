@@ -1,9 +1,10 @@
-import { CandlestickSeries, ColorType, HistogramSeries, LineSeries, LineStyle, createChart } from 'lightweight-charts'
+import { CandlestickSeries, HistogramSeries, LineSeries, LineStyle, createChart } from 'lightweight-charts'
 import type { IChartApi, ISeriesApi, SeriesType, UTCTimestamp } from 'lightweight-charts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { errorMessage } from '../api/client'
 import { fetchCandles, fetchIndicators } from '../api/trading'
+import { baseChartOptions, chartColors, withAlpha } from '../lib/chartTheme'
 import { formatUsd } from '../lib/money'
 import { CANDLE_RANGES } from '../types/trading'
 import type { Candle, CandleRange, IndicatorPoint, Indicators } from '../types/trading'
@@ -29,28 +30,6 @@ const LAYERS: { id: Layer; label: string; pane: boolean; slot: number | null }[]
 
 const MAIN_HEIGHT = 300
 const PANE_HEIGHT = 140
-
-/** The design tokens, read once from CSS so the chart can never drift from the page. */
-function chartColors() {
-  const style = getComputedStyle(document.documentElement)
-  const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback
-  return {
-    paper: read('--color-paper', '#f7f4ec'),
-    ink: read('--color-ink', '#16140f'),
-    ink2: read('--color-ink-2', '#4e493f'),
-    ink3: read('--color-ink-3', '#66615a'),
-    rule: read('--color-rule', '#d8d1c1'),
-    gain: read('--color-gain', '#006300'),
-    loss: read('--color-loss', '#b3261e'),
-    series: [1, 2, 3].map((n) => read(`--color-series-${n}`, ['#2a78d6', '#eb6834', '#1baf7a'][n - 1])),
-  }
-}
-
-function withAlpha(hex: string, alpha: number): string {
-  const value = hex.replace('#', '')
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16))
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
 
 /** Prices arrive as strings; the chart library needs numbers, and this is display only. */
 function toLine(points: IndicatorPoint[]) {
@@ -87,23 +66,10 @@ export function PriceChart({ symbol }: PriceChartProps) {
       return
     }
     const c = chartColors()
+    const base = baseChartOptions(c)
     const chart = createChart(container, {
-      autoSize: true,
-      layout: {
-        background: { type: ColorType.Solid, color: c.paper },
-        textColor: c.ink2,
-        fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
-        fontSize: 12,
-        attributionLogo: false,
-      },
-      // Horizontal hairlines only, solid and one step off the paper: recessive, never dashed.
-      grid: { vertLines: { visible: false }, horzLines: { color: c.rule } },
-      rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, timeVisible: true },
-      crosshair: {
-        vertLine: { color: c.ink3, width: 1, style: LineStyle.Solid, labelBackgroundColor: c.ink },
-        horzLine: { color: c.ink3, width: 1, style: LineStyle.Solid, labelBackgroundColor: c.ink },
-      },
+      ...base,
+      timeScale: { ...base.timeScale, timeVisible: true },
     })
     chartRef.current = chart
     // Rising candles are hollow and falling ones filled, so direction survives without colour.

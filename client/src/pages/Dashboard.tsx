@@ -12,6 +12,7 @@ import {
 } from '../api/trading'
 import { errorMessage } from '../api/client'
 import { OrderHistory } from '../components/OrderHistory'
+import { PerformanceSection } from '../components/PerformanceSection'
 import { AllocationSection, HoldingsSection, PortfolioMasthead } from '../components/PortfolioOverview'
 import { RiskSettingsCard } from '../components/RiskSettingsCard'
 import { TradePanel } from '../components/TradePanel'
@@ -28,6 +29,8 @@ export function Dashboard() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [watchError, setWatchError] = useState<string | null>(null)
   const [requested, setRequested] = useState<{ symbol: string } | null>(null)
+  // Bumped after every reload, so the performance figures are re-read when a trade lands.
+  const [version, setVersion] = useState(0)
 
   // Each section loads on its own: one failing endpoint must not blank the others.
   const load = useCallback(async () => {
@@ -52,6 +55,7 @@ export function Dashboard() {
   const reload = useCallback(async () => {
     const [result] = await Promise.all([load(), refreshUser().catch(() => undefined)])
     apply(result)
+    setVersion((current) => current + 1)
   }, [load, apply, refreshUser])
 
   useEffect(() => {
@@ -136,6 +140,7 @@ export function Dashboard() {
       <main id="main" className="mx-auto max-w-[80rem] px-4 pb-24 pt-8 sm:px-6 lg:px-10 lg:pt-12">
         <h1 className="sr-only">Dashboard</h1>
         <PortfolioMasthead portfolio={portfolio} cash={user.cashBalance} />
+        <PerformanceSection version={version} />
 
         {/*
           One column on a phone, in the order a person reaches for things; two on a wide screen,

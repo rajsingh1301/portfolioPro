@@ -7,6 +7,8 @@ import type {
   Indicators,
   Order,
   PlaceOrderRequest,
+  Performance,
+  PerformanceRange,
   Portfolio,
   RiskLimitsInput,
   RiskSettings,
@@ -92,5 +94,10 @@ export async function fetchRiskSettings(): Promise<RiskSettings> {
 
 export async function saveRiskSettings(limits: RiskLimitsInput): Promise<RiskSettings> {
   const { data } = await api.put<RiskSettings>('/risk/settings', limits)
+  return data
+}
+
+export async function fetchPerformance(range: PerformanceRange): Promise<Performance> {
+  const { data } = await api.get<Performance>('/portfolio/performance', { params: { range } })
   return data
 }
