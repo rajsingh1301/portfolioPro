@@ -1,15 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f7f4ec" />
+    <meta name="theme-color" content="#131722" />
     <meta name="description" content="Practise trading with virtual money against real US market prices." />
+    <script>
+      // Set the theme before anything paints, so a light-theme user never sees a dark flash.
+      try {
+        var saved = localStorage.getItem('pp-theme')
+        if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved
+      } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <title>PortfolioPro</title>

@@ -76,6 +76,12 @@ export interface Portfolio {
   totalValue: string
   unrealizedPnl: string
   realizedPnl: string
+  /** The money put into the account, from the ledger. */
+  netDeposits: string
+  /** Unrealized plus realized: everything made or lost since the account opened. */
+  overallPnl: string
+  /** The overall figure as a share of the money put in. */
+  overallPnlPercent: string
   holdings: Holding[]
 }
 
@@ -169,7 +175,7 @@ export interface RiskSettings {
 
 export type RiskLimitsInput = Pick<RiskSettings, 'maxPositionPct' | 'maxOrderValue' | 'defaultStopLossPct'>
 
-export const PERFORMANCE_RANGES = ['1M', '3M', '6M', '1Y'] as const
+export const PERFORMANCE_RANGES = ['1W', '1M', '3M', '6M', '1Y', 'ALL'] as const
 export type PerformanceRange = (typeof PERFORMANCE_RANGES)[number]
 
 /** Mirrors com.portfoliopro.trading.dto.PerformanceResponse. Dates are UTC calendar days, money is a string. */
@@ -204,4 +210,22 @@ export interface PositionResult {
   realizedPnl: string
   unrealizedPnl?: string
   totalPnl: string
+}
+
+/** Mirrors com.portfoliopro.trading.dto.TodayResponse: what the portfolio made or lost since the previous close. */
+export interface Today {
+  dayPnl: string
+  dayPnlPercent: string
+  positions: TodayPosition[]
+  asOf: string
+}
+
+/** The per-share figures are absent for a symbol whose quote could not be fetched. */
+export interface TodayPosition {
+  symbol: string
+  quantity: number
+  previousClose?: string
+  dayChange?: string
+  dayChangePercent?: string
+  dayPnl?: string
 }

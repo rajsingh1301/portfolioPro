@@ -14,9 +14,15 @@ import type {
   RiskSettings,
   Quote,
   StockSearchResult,
+  Today,
   Trade,
   WatchlistItem,
 } from '../types/trading'
+
+export async function fetchToday(): Promise<Today> {
+  const { data } = await api.get<Today>('/portfolio/today')
+  return data
+}
 
 export async function searchStocks(query: string): Promise<StockSearchResult[]> {
   const { data } = await api.get<StockSearchResult[]>('/stocks/search', { params: { q: query } })

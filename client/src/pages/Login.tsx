@@ -39,13 +39,13 @@ export function Login() {
       footer={
         <>
           No account yet?{' '}
-          <Link to="/signup" className="font-medium text-accent underline underline-offset-4 hover:text-accent-strong">
+          <Link to="/signup" className="font-medium text-accent-text underline underline-offset-2 hover:text-ink">
             Sign up
           </Link>
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+      <form onSubmit={handleSubmit} className="mt-4 space-y-3">
         <FormField
           id="email"
           label="Email"

@@ -7,6 +7,7 @@ import { fetchRiskSettings, saveRiskSettings } from '../api/trading'
 import { formatUsd } from '../lib/money'
 import type { ApiError } from '../types/auth'
 import type { LimitRange, RiskLimitsInput, RiskSettings } from '../types/trading'
+import { ErrorState } from './ui/states'
 
 type Field = keyof RiskLimitsInput
 
@@ -51,6 +52,7 @@ export function RiskSettingsCard({ className = '' }: { className?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -63,6 +65,7 @@ export function RiskSettingsCard({ className = '' }: { className?: string }) {
             maxOrderValue: loaded.maxOrderValue,
             defaultStopLossPct: loaded.defaultStopLossPct,
           })
+          setError(null)
         }
       })
       .catch((failure: unknown) => {
@@ -73,7 +76,7 @@ export function RiskSettingsCard({ className = '' }: { className?: string }) {
     return () => {
       active = false
     }
-  }, [])
+  }, [attempt])
 
   async function submit(limits: RiskLimitsInput) {
     setBusy(true)
@@ -122,28 +125,34 @@ export function RiskSettingsCard({ className = '' }: { className?: string }) {
     saved !== null && FIELDS.every((field) => Number(saved[field.id]) === Number(saved.defaults[field.id]))
 
   return (
-    <section aria-labelledby="risk-heading" className={`section ${className}`}>
-      <h2 id="risk-heading" className="section-title">
-        Risk limits
-      </h2>
-      <p className="mt-2 text-sm text-ink-2">
-        Checked before every order. A rejected order is kept in your history with the reason.
+    <section aria-labelledby="risk-heading" className={`panel ${className}`}>
+      <div className="panel-header">
+        <h2 id="risk-heading">Risk limits</h2>
+      </div>
+      <p className="px-3 pt-2 text-sm text-ink-2">
+        Checked before every order. A rejected order is kept in your order history with the reason.
       </p>
 
       {saved === null || form === null ? (
-        <p role={error === null ? 'status' : 'alert'} className={error === null ? 'mt-4 text-sm text-ink-3' : 'notice-error mt-4'}>
-          {error ?? 'Loading your limits…'}
-        </p>
+        error !== null ? (
+          <ErrorState message={error} onRetry={() => setAttempt((current) => current + 1)} />
+        ) : (
+          <div role="status" aria-label="Loading your limits" className="space-y-3 p-3">
+            <div className="skeleton h-8" />
+            <div className="skeleton h-8" />
+            <div className="skeleton h-8" />
+          </div>
+        )
       ) : (
-        <form onSubmit={handleSubmit} className="mt-2">
+        <form onSubmit={handleSubmit} className="px-3 pb-3">
           {FIELDS.map((field) => {
             const message = fieldErrors[field.id]
             return (
-              <div key={field.id} className="border-b border-rule py-4">
+              <div key={field.id} className="border-b border-rule py-3">
                 <label htmlFor={`risk-${field.id}`} className="block text-sm font-medium">
                   {field.label}
                 </label>
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-1 flex items-center gap-2">
                   {field.unit === '$' && <span className="text-ink-2">$</span>}
                   <input
                     id={`risk-${field.id}`}
@@ -152,24 +161,24 @@ export function RiskSettingsCard({ className = '' }: { className?: string }) {
                     onChange={(event) => setForm({ ...form, [field.id]: event.target.value })}
                     aria-invalid={message !== undefined}
                     aria-describedby={`risk-${field.id}-hint`}
-                    className="input w-32 tabular-nums"
+                    className="input w-28 tabular-nums"
                   />
                   {field.unit === '%' && <span className="text-ink-2">%</span>}
                   <span className="text-xs text-ink-3">allowed {rangeText(saved.bounds[field.id], field.unit)}</span>
                 </div>
                 {message !== undefined && (
-                  <p role="alert" className="notice-error mt-2">
+                  <p role="alert" className="notice-error mt-1.5">
                     {message}
                   </p>
                 )}
-                <p id={`risk-${field.id}-hint`} className="mt-2 text-xs text-ink-2">
+                <p id={`risk-${field.id}-hint`} className="mt-1 text-xs text-ink-2">
                   Now: {field.meaning(saved[field.id])}
                 </p>
               </div>
             )
           })}
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <button type="submit" disabled={busy || !dirty} className="btn btn-primary">
               Save limits
             </button>
@@ -178,12 +187,12 @@ export function RiskSettingsCard({ className = '' }: { className?: string }) {
             </button>
           </div>
           {error !== null && (
-            <p role="alert" className="notice-error mt-4">
+            <p role="alert" className="notice-error mt-3">
               {error}
             </p>
           )}
           {notice !== null && (
-            <p role="status" className="mt-4 border-l-2 border-gain py-1 pl-3 text-sm text-gain">
+            <p role="status" className="notice-ok mt-3">
               {notice}
             </p>
           )}
