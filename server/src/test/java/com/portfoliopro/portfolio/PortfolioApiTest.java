@@ -116,6 +116,21 @@ class PortfolioApiTest {
     }
 
     @Test
+    @DisplayName("overall P&L is measured against the money put in, not against cash or the current total")
+    void overallPercentIsOfMoneyPutIn() throws Exception {
+        order("AAPL", "BUY", 100); // 10,000 spent: cash is now 90,000
+        price("AAPL", "150.00");   // the 100 shares are worth 15,000: total 105,000, unrealized +5,000
+
+        // 5,000 of 100,000 put in is 5.00%. Against the 90,000 of cash it would be 5.56%, and against the
+        // 105,000 total 4.76%, so a wrong denominator cannot pass by coincidence of rounding.
+        portfolio()
+                .andExpect(jsonPath("$.totalValue").value("105000.00"))
+                .andExpect(jsonPath("$.netDeposits").value("100000.00"))
+                .andExpect(jsonPath("$.overallPnl").value("5000.00"))
+                .andExpect(jsonPath("$.overallPnlPercent").value("5.00"));
+    }
+
+    @Test
     @DisplayName("a loss is negative and a fully sold position drops off the list but its realized P&L stays in the total")
     void realizedAndClosed() throws Exception {
         order("AAPL", "BUY", 10);
