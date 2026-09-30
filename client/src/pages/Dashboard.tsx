@@ -12,12 +12,11 @@ import {
 } from '../api/trading'
 import { errorMessage } from '../api/client'
 import { OrderHistory } from '../components/OrderHistory'
-import { PortfolioOverview } from '../components/PortfolioOverview'
+import { AllocationSection, HoldingsSection, PortfolioMasthead } from '../components/PortfolioOverview'
 import { RiskSettingsCard } from '../components/RiskSettingsCard'
 import { TradePanel } from '../components/TradePanel'
 import { WatchlistCard } from '../components/WatchlistCard'
 import { useAuth } from '../context/useAuth'
-import { formatUsd } from '../lib/money'
 import type { AllocationSlice, Order, Portfolio, Trade, WatchlistItem } from '../types/trading'
 
 export function Dashboard() {
@@ -118,51 +117,59 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-dvh bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <span className="font-semibold text-slate-900">PortfolioPro</span>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-500">{user.email}</span>
-            <button
-              type="button"
-              onClick={logout}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
+    <div className="min-h-dvh">
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+      <header className="border-b border-rule">
+        <div className="mx-auto flex h-14 max-w-[80rem] items-center justify-between px-4 sm:px-6 lg:px-10">
+          <span className="font-display text-xl font-semibold tracking-tight">PortfolioPro</span>
+          <div className="flex items-center gap-3 sm:gap-5">
+            <span className="hidden text-sm text-ink-3 sm:inline">{user.email}</span>
+            <button type="button" onClick={logout} className="btn btn-sm">
               Log out
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
+      <main id="main" className="mx-auto max-w-[80rem] px-4 pb-24 pt-8 sm:px-6 lg:px-10 lg:pt-12">
+        <h1 className="sr-only">Dashboard</h1>
+        <PortfolioMasthead portfolio={portfolio} cash={user.cashBalance} />
 
-        <div className="mt-6 space-y-6">
-          {portfolio === null ? (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-slate-500">Available cash</p>
-              <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
-                {formatUsd(user.cashBalance)}
-              </p>
-            </div>
-          ) : (
-            <PortfolioOverview portfolio={portfolio} allocation={allocation} />
-          )}
-          <WatchlistCard
-            items={watchlist}
-            error={watchError}
-            onSelect={(symbol) => setRequested({ symbol })}
-            onRemove={(symbol) => void toggleWatch(symbol, true)}
-          />
-          <TradePanel
-            onOrderPlaced={() => void reload().catch(() => undefined)}
-            watchedSymbols={watchlist.map((item) => item.symbol)}
-            onToggleWatch={(symbol, watched) => void toggleWatch(symbol, watched)}
-            requested={requested}
-          />
-          <OrderHistory orders={orders} trades={trades} onCancel={(id) => void handleCancel(id)} />
-          <RiskSettingsCard />
+        {/*
+          One column on a phone, in the order a person reaches for things; two on a wide screen,
+          the workspace wide and a narrow rail beside it. The wrappers vanish (display: contents)
+          below `lg`, so `order` interleaves all six sections in a single flow there.
+        */}
+        <div className="mt-12 flex flex-col gap-12 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-x-14">
+          <div className="contents lg:flex lg:flex-col lg:gap-12">
+            <TradePanel
+              className="order-1"
+              onOrderPlaced={() => void reload().catch(() => undefined)}
+              watchedSymbols={watchlist.map((item) => item.symbol)}
+              onToggleWatch={(symbol, watched) => void toggleWatch(symbol, watched)}
+              requested={requested}
+            />
+            <HoldingsSection portfolio={portfolio} className="order-3" />
+            <OrderHistory
+              className="order-4"
+              orders={orders}
+              trades={trades}
+              onCancel={(id) => void handleCancel(id)}
+            />
+          </div>
+          <div className="contents lg:flex lg:flex-col lg:gap-12">
+            <WatchlistCard
+              className="order-2"
+              items={watchlist}
+              error={watchError}
+              onSelect={(symbol) => setRequested({ symbol })}
+              onRemove={(symbol) => void toggleWatch(symbol, true)}
+            />
+            <AllocationSection allocation={allocation} className="order-5" />
+            <RiskSettingsCard className="order-6" />
+          </div>
         </div>
       </main>
     </div>

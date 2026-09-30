@@ -44,7 +44,7 @@ function rangeText(range: LimitRange, unit: '%' | '$'): string {
   return `${show(range.min)} to ${show(range.max)}`
 }
 
-export function RiskSettingsCard() {
+export function RiskSettingsCard({ className = '' }: { className?: string }) {
   const [saved, setSaved] = useState<RiskSettings | null>(null)
   const [form, setForm] = useState<RiskLimitsInput | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<Field, string>>>({})
@@ -122,27 +122,29 @@ export function RiskSettingsCard() {
     saved !== null && FIELDS.every((field) => Number(saved[field.id]) === Number(saved.defaults[field.id]))
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-900">Risk limits</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <section aria-labelledby="risk-heading" className={`section ${className}`}>
+      <h2 id="risk-heading" className="section-title">
+        Risk limits
+      </h2>
+      <p className="mt-2 text-sm text-ink-2">
         Checked before every order. A rejected order is kept in your history with the reason.
       </p>
 
       {saved === null || form === null ? (
-        <p role={error === null ? 'status' : 'alert'} className={`mt-3 text-sm ${error === null ? 'text-slate-500' : 'text-red-600'}`}>
-          {error ?? 'Loading…'}
+        <p role={error === null ? 'status' : 'alert'} className={error === null ? 'mt-4 text-sm text-ink-3' : 'notice-error mt-4'}>
+          {error ?? 'Loading your limits…'}
         </p>
       ) : (
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-2">
           {FIELDS.map((field) => {
             const message = fieldErrors[field.id]
             return (
-              <div key={field.id}>
-                <label htmlFor={`risk-${field.id}`} className="block text-sm font-medium text-slate-700">
+              <div key={field.id} className="border-b border-rule py-4">
+                <label htmlFor={`risk-${field.id}`} className="block text-sm font-medium">
                   {field.label}
                 </label>
-                <div className="mt-1 flex items-center gap-2">
-                  {field.unit === '$' && <span className="text-slate-500">$</span>}
+                <div className="mt-2 flex items-center gap-2">
+                  {field.unit === '$' && <span className="text-ink-2">$</span>}
                   <input
                     id={`risk-${field.id}`}
                     inputMode="decimal"
@@ -150,48 +152,41 @@ export function RiskSettingsCard() {
                     onChange={(event) => setForm({ ...form, [field.id]: event.target.value })}
                     aria-invalid={message !== undefined}
                     aria-describedby={`risk-${field.id}-hint`}
-                    className="w-40 rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 aria-[invalid=true]:border-red-500"
+                    className="input w-32 tabular-nums"
                   />
-                  {field.unit === '%' && <span className="text-slate-500">%</span>}
-                  <span className="text-xs text-slate-500">
-                    allowed {rangeText(saved.bounds[field.id], field.unit)}
-                  </span>
+                  {field.unit === '%' && <span className="text-ink-2">%</span>}
+                  <span className="text-xs text-ink-3">allowed {rangeText(saved.bounds[field.id], field.unit)}</span>
                 </div>
                 {message !== undefined && (
-                  <p role="alert" className="mt-1 text-sm text-red-600">
+                  <p role="alert" className="notice-error mt-2">
                     {message}
                   </p>
                 )}
-                <p id={`risk-${field.id}-hint`} className="mt-1 text-xs text-slate-500">
+                <p id={`risk-${field.id}-hint`} className="mt-2 text-xs text-ink-2">
                   Now: {field.meaning(saved[field.id])}
                 </p>
               </div>
             )
           })}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={busy || !dirty}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
-            >
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button type="submit" disabled={busy || !dirty} className="btn btn-primary">
               Save limits
             </button>
-            <button
-              type="button"
-              onClick={reset}
-              disabled={busy || atDefaults}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
+            <button type="button" onClick={reset} disabled={busy || atDefaults} className="btn">
               Reset to defaults
             </button>
           </div>
           {error !== null && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="notice-error mt-4">
               {error}
             </p>
           )}
-          {notice !== null && <p className="text-sm text-green-700">{notice}</p>}
+          {notice !== null && (
+            <p role="status" className="mt-4 border-l-2 border-gain py-1 pl-3 text-sm text-gain">
+              {notice}
+            </p>
+          )}
         </form>
       )}
     </section>

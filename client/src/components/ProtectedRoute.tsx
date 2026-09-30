@@ -12,8 +12,8 @@ export function ProtectedRoute() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center text-slate-500">
-        Loading...
+      <div role="status" aria-live="polite" className="flex min-h-dvh items-center justify-center text-sm text-ink-3">
+        Checking your session…
       </div>
     )
   }

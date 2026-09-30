@@ -9,9 +9,9 @@ type Loaded = { symbol: string; data: Fundamentals } | { symbol: string; error: 
 
 function Stat({ label, value }: { label: string; value: string | undefined }) {
   return (
-    <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium text-slate-900">{value ?? '—'}</dd>
+    <div className="border-t border-rule py-3 pr-4 [&:nth-child(-n+2)]:border-t-0 sm:[&:nth-child(-n+4)]:border-t-0">
+      <dt className="text-xs text-ink-3">{label}</dt>
+      <dd className="mt-0.5 text-base font-medium tabular-nums">{value ?? '—'}</dd>
     </div>
   )
 }
@@ -40,10 +40,14 @@ export function FundamentalsCard({ symbol }: { symbol: string }) {
   // A result for a previous symbol is treated as still loading, never shown under this one.
   const current = loaded !== null && loaded.symbol === symbol ? loaded : null
   if (current === null) {
-    return <p className="mt-5 text-sm text-slate-500">Loading fundamentals…</p>
+    return (
+      <p role="status" className="mt-6 text-sm text-ink-3">
+        Loading fundamentals…
+      </p>
+    )
   }
   if ('error' in current) {
-    return <p className="mt-5 text-sm text-slate-500">{current.error}</p>
+    return <p className="mt-6 text-sm text-ink-2">{current.error}</p>
   }
 
   const f = current.data
@@ -51,15 +55,14 @@ export function FundamentalsCard({ symbol }: { symbol: string }) {
     f.week52Low !== undefined && f.week52High !== undefined
       ? `${formatUsd(f.week52Low)} – ${formatUsd(f.week52High)}`
       : undefined
+  const context = [f.name, f.industry, f.exchange].filter(Boolean).join(' · ')
   return (
-    <div className="mt-5">
-      <h3 className="text-sm font-medium text-slate-500">
+    <div className="mt-6">
+      <h3 className="flex flex-wrap items-baseline gap-x-3 text-lg">
         Fundamentals
-        {(f.industry !== undefined || f.exchange !== undefined) && (
-          <span className="ml-2 font-normal">{[f.industry, f.exchange].filter(Boolean).join(' · ')}</span>
-        )}
+        {context !== '' && <span className="font-sans text-xs font-normal text-ink-3">{context}</span>}
       </h3>
-      <dl className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <dl className="mt-2 grid grid-cols-2 border-t border-ink sm:grid-cols-4">
         <Stat label="Market cap" value={f.marketCap === undefined ? undefined : formatCompactUsd(f.marketCap)} />
         <Stat label="P/E (TTM)" value={f.peRatio} />
         <Stat label="EPS (TTM)" value={f.eps === undefined ? undefined : formatUsd(f.eps)} />

@@ -1,1 +1,207 @@
 @import 'tailwindcss';
+
+/*
+ * Design tokens. Everything visual comes from here, so the look changes in one place.
+ *
+ * Direction: a printed ledger. Warm paper, ink, hairline rules instead of boxes, one
+ * ink-blue accent that only ever marks the action that matters. No shadows, and only
+ * two radii: a small one for controls and a full one for chips.
+ *
+ * Contrast (measured against --color-paper): ink 16.7, ink-2 8.1, ink-3 5.6, accent 6.0,
+ * gain 6.9, loss 6.0, all AA for text. --color-edge is 3.7 (WCAG asks 3.0 for the border
+ * of a control). --color-rule is decorative only and never carries text or a control.
+ */
+/* `static` keeps every token in the CSS even when only a `var()` uses it (the chart fills do). */
+@theme static {
+  /* Type: one display serif for headings, one sans for everything else, figures included. */
+  --font-display: 'Newsreader', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --text-xs: 0.75rem; /* 12 */
+  --text-xs--line-height: 1.25;
+  --text-sm: 0.875rem; /* 14 */
+  --text-sm--line-height: 1.4;
+  --text-base: 1rem; /* 16 */
+  --text-base--line-height: 1.55;
+  --text-lg: 1.125rem; /* 18 */
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.5rem; /* 24, section headings */
+  --text-xl--line-height: 1.2;
+  --text-2xl: 2rem; /* 32 */
+  --text-2xl--line-height: 1.1;
+  --text-display: clamp(2rem, 5.5vw, 3.25rem); /* auth headline */
+  --text-display--line-height: 1.05;
+  --text-hero: clamp(2.75rem, 9vw, 4.5rem); /* the one number the dashboard leads with */
+  --text-hero--line-height: 1;
+
+  /* Neutrals */
+  --color-paper: #f7f4ec;
+  --color-field: #fdfbf6;
+  --color-ink: #16140f;
+  --color-ink-2: #4e493f;
+  --color-ink-3: #66615a;
+  --color-rule: #d8d1c1;
+  --color-edge: #857e70;
+
+  /* The one accent, and its two derived states */
+  --color-accent: #1c5cab;
+  --color-accent-strong: #184f95;
+  --color-accent-wash: #e4ecf6;
+
+  /* Meaning, not decoration: only ever a gain or a loss, always beside a sign */
+  --color-gain: #006300;
+  --color-loss: #b3261e;
+
+  /* Chart categorical slots, in their validated order. Identity only, never a state. */
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+  --color-series-3: #1baf7a;
+  --color-series-4: #eda100;
+  --color-series-5: #e87ba4;
+  --color-series-6: #008300;
+
+  --radius-control: 4px;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /*
+   * One focus ring for everything. The colour is set on every element up front, because
+   * `transition-colors` also animates outline-color: left to default, the ring would fade in
+   * from the element's own text colour (white on a primary button, so invisible for a beat).
+   */
+  * {
+    outline-color: var(--color-accent);
+  }
+  :focus-visible {
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-accent-wash);
+  }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary,
+  label:has(input[type='checkbox']) {
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Buttons. 44px tall everywhere; the small variant is 32px only for a mouse. */
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-edge bg-field px-4 text-sm font-medium text-ink transition-colors duration-150 hover:bg-accent-wash disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-field;
+  }
+  .btn-primary {
+    @apply border-accent bg-accent text-white hover:bg-accent-strong disabled:hover:bg-accent;
+  }
+  .btn-sm {
+    @apply min-h-8 px-3 text-xs;
+  }
+  @media (pointer: coarse) {
+    .btn-sm {
+      @apply min-h-11;
+    }
+  }
+
+  .input {
+    @apply min-h-11 w-full rounded-control border border-edge bg-field px-3 text-base text-ink transition-colors duration-150 placeholder:text-ink-3 focus:border-accent aria-[invalid=true]:border-loss;
+  }
+
+  /* Segmented control: one choice of a few, selected = filled ink. */
+  .seg {
+    @apply inline-flex overflow-hidden rounded-control border border-edge bg-field;
+  }
+  .seg > button {
+    @apply min-h-11 px-4 text-sm font-medium text-ink-2 transition-colors duration-150 hover:bg-accent-wash aria-pressed:bg-ink aria-pressed:text-paper aria-pressed:hover:bg-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-field;
+  }
+  .seg > button + button {
+    border-left: 1px solid var(--color-edge);
+  }
+  .seg-sm > button {
+    @apply min-h-8 px-3 text-xs;
+  }
+  @media (pointer: coarse) {
+    .seg-sm > button {
+      @apply min-h-11;
+    }
+  }
+
+  /* Toggle chip, the second radius. */
+  .chip {
+    @apply inline-flex min-h-9 items-center gap-2 rounded-full border border-edge bg-field px-3 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-accent-wash aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper aria-pressed:hover:bg-ink;
+  }
+  @media (pointer: coarse) {
+    .chip {
+      @apply min-h-11;
+    }
+  }
+
+  .eyebrow {
+    @apply text-xs font-medium uppercase tracking-[0.08em] text-ink-3;
+  }
+
+  /* A section: an ink rule, then a serif heading. */
+  .section {
+    @apply border-t border-ink pt-3;
+  }
+  .section-title {
+    @apply font-display text-xl font-medium;
+  }
+
+  /* Ruled table. Figures in columns are tabular so they line up. */
+  .data-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+  .data-table th {
+    @apply py-2 pr-4 text-xs font-medium uppercase tracking-[0.06em] text-ink-3;
+  }
+  .data-table td {
+    @apply border-t border-rule py-3 pr-4 align-top;
+  }
+  .data-table th:last-child,
+  .data-table td:last-child {
+    @apply pr-0;
+  }
+  .num {
+    @apply text-right tabular-nums;
+  }
+
+  .skip-link {
+    @apply absolute left-4 top-2 z-10 -translate-y-16 rounded-control bg-ink px-4 py-2 text-sm font-medium text-paper focus:translate-y-0;
+  }
+
+  /* An error is a rule and words, never colour alone. */
+  .notice-error {
+    @apply border-l-2 border-loss py-1 pl-3 text-sm text-loss;
+  }
+}

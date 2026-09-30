@@ -6,6 +6,7 @@ interface WatchlistCardProps {
   error: string | null
   onSelect: (symbol: string) => void
   onRemove: (symbol: string) => void
+  className?: string
 }
 
 function change(item: WatchlistItem): string {
@@ -16,43 +17,45 @@ function change(item: WatchlistItem): string {
   return `${sign}${formatUsd(item.change)} (${sign}${item.percentChange}%)`
 }
 
-export function WatchlistCard({ items, error, onSelect, onRemove }: WatchlistCardProps) {
+export function WatchlistCard({ items, error, onSelect, onRemove, className = '' }: WatchlistCardProps) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-900">Watchlist</h2>
+    <section aria-labelledby="watchlist-heading" className={`section ${className}`}>
+      <h2 id="watchlist-heading" className="section-title">
+        Watchlist
+      </h2>
       {error !== null && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="notice-error mt-3">
           {error}
         </p>
       )}
       {items.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-500">
-          Nothing followed yet. Search a stock in the trade panel and choose Watch.
+        <p className="mt-4 text-sm text-ink-2">
+          Nothing followed yet. Find a stock in the trade panel and choose Watch.
         </p>
       ) : (
-        <ul className="mt-3 divide-y divide-slate-100">
+        <ul className="mt-2">
           {items.map((item) => (
-            <li key={item.symbol} className="flex items-center gap-3 py-2 text-sm">
+            <li key={item.symbol} className="flex items-center gap-2 border-t border-rule first:border-t-0">
               <button
                 type="button"
                 onClick={() => onSelect(item.symbol)}
                 aria-label={`Trade ${item.symbol}`}
-                className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md px-1 py-1 text-left hover:bg-slate-50"
+                className="-mx-2 flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-control px-2 py-2 text-left transition-colors duration-150 hover:bg-accent-wash"
               >
                 <span className="min-w-0">
-                  <span className="font-medium text-slate-900">{item.symbol}</span>
-                  {item.name !== undefined && <span className="ml-2 truncate text-slate-500">{item.name}</span>}
+                  <span className="block font-medium">{item.symbol}</span>
+                  {item.name !== undefined && <span className="block truncate text-xs text-ink-3">{item.name}</span>}
                 </span>
-                <span className="flex shrink-0 items-baseline gap-3">
-                  <span className="text-slate-900">{item.price === undefined ? '—' : formatUsd(item.price)}</span>
-                  <span className={`w-36 text-right ${pnlColor(item.change)}`}>{change(item)}</span>
+                <span className="shrink-0 text-right tabular-nums">
+                  <span className="block text-sm">{item.price === undefined ? '—' : formatUsd(item.price)}</span>
+                  <span className={`block text-xs ${pnlColor(item.change)}`}>{change(item)}</span>
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => onRemove(item.symbol)}
                 aria-label={`Stop watching ${item.symbol}`}
-                className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="btn btn-sm shrink-0"
               >
                 Remove
               </button>

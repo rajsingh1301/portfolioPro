@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "install-browser": "playwright install chromium",
-    "journey": "node journey.mjs"
+    "journey": "node journey.mjs",
+    "a11y": "node a11y.mjs"
   },
   "devDependencies": {
-    "playwright": "^1.63.0"
+    "playwright": "^1.63.0",
+    "axe-core": "^4.11.0"
   }
 }

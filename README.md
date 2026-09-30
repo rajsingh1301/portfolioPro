@@ -75,12 +75,20 @@ never called from them: local stubs stand in, and count the requests they receiv
 With the backend and client running and real keys in `server/.env`:
 
 ```bash
-cd e2e && npm install && npm run install-browser && npm run journey
+cd e2e && npm install && npm run install-browser
+npm run journey     # the whole app, step by step
+npm run a11y        # axe-core (WCAG 2.2 AA) at desktop and phone width, plus tap-target sizes
 ```
 
 It signs up a fresh account and walks the whole app in a headless browser (search, chart,
 indicators, watchlist, market/limit/stop-loss orders, the scheduler filling one, a risk limit
 rejecting an order, reload, log out and back in), stopping at the first thing that is wrong.
+
+## Design
+
+A printed-ledger look: warm paper, ink, hairline rules, one ink-blue accent, no shadows. Every colour,
+font and radius is a token in [`client/src/index.css`](client/src/index.css); the chart reads the same
+variables. The reasoning and the measured contrast are in [PROGRESS.md](PROGRESS.md#ui-redesign).
 
 ## Not done
 

@@ -35,17 +35,17 @@ export function Signup() {
   return (
     <AuthLayout
       title="Create an account"
-      subtitle="You start with $100,000 of virtual cash."
+      subtitle="You start with $100,000 of virtual cash. No card, no real money."
       footer={
         <>
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-slate-900 underline">
+          <Link to="/login" className="font-medium text-accent underline underline-offset-4 hover:text-accent-strong">
             Log in
           </Link>
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <FormField
           id="email"
           label="Email"
@@ -64,14 +64,14 @@ export function Signup() {
           hint="At least 8 characters."
         />
         {error !== null && (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p role="alert" className="notice-error">
             {error}
           </p>
         )}
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-md bg-slate-900 px-3 py-2 font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+          className="btn btn-primary w-full"
         >
           {isSubmitting ? 'Creating account...' : 'Create account'}
         </button>

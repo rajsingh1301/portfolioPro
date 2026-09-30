@@ -453,10 +453,52 @@ Three gaps recorded along the way were closed at the end.
 
 `stocks.exchange` and `stocks.sector`, always empty after slice 2, are now filled the first time a stock's fundamentals are viewed (slice 8).
 
+## UI redesign
+
+The first UI was a single 896px column of eight identical white `rounded-xl shadow-sm` cards on grey, in the browser's default font, with a grab-bag of slate, green and red and black buttons for everything. The total value carried the same weight as the risk limits, and on a wide screen the trading workspace sat mid-page in a narrow column. It was redone without changing any route, component contract or behaviour.
+
+**Direction: a printed ledger.** Warm paper, ink, hairline rules where boxes were, one ink-blue accent, no shadows.
+
+**Tokens** (all in `client/src/index.css` as `@theme static`, so the chart reads the same variables):
+
+| | |
+|---|---|
+| Type | Newsreader for headings, IBM Plex Sans for everything else including figures. Scale 12 / 14 / 16 / 18 / 24 / 32, plus a fluid hero (44 to 72px) |
+| Colour | paper `#F7F4EC`, ink `#16140F`, secondary `#4E493F`, muted `#66615A`, accent `#1C5CAB`, gain `#006300`, loss `#B3261E`. Six validated categorical chart slots |
+| Space | Tailwind's 4px scale; sections 48px apart |
+| Shape | radius `4px` for controls and full for chips; **no shadows** |
+
+**Contrast, measured** against the paper: ink 16.7, secondary 8.1, muted 5.6, accent 6.0, gain 6.9, loss 6.0 (all AA text); white on the accent 6.6; a control's border 3.7 (WCAG asks 3.0).
+
+**What changed, page by page**
+
+- **Login and signup:** an unequal split. What the app is on the left (a serif headline, one paragraph, a ruled list of three plain facts), the form on the right; on a phone the form follows a short introduction. Errors are a rule plus words, never colour alone.
+- **Dashboard:** a masthead leading with the total value as the hero figure, the smaller figures under an ink rule, no boxes. Below it, two columns on a wide screen (trade workspace wide, a 22rem rail beside it) and one on a phone, with the sections in the order a person reaches for them.
+- **Trade:** one workspace: search, quote, fundamentals, chart, then an order ticket with the estimate and the single accent button on the page. The estimate is integer arithmetic (`0.1 x 3` is `0.30`, not `0.30000000000000004`).
+- **Chart:** built from the tokens. Rising candles are hollow and falling ones filled, so direction survives without colour. A readout of open, high, low and close follows the pointer (or shows the latest candle), indicator chips carry a key in their line's colour, and a table twin of the data sits under the chart. Changing range keeps the old candles, dimmed, instead of blanking.
+- **Holdings and orders:** ruled tables with aligned figures. On a phone they drop the columns that can be recovered (average cost, time, side, type) and fold side and type under the symbol.
+- **Allocation:** one stacked bar instead of a bar per holding, with the legend doubling as the data table. A holding keeps its colour while others come and go; past six, the rest fold into "Other".
+- **Watchlist, risk limits:** compact rows. Every empty, loading and error state has specific words.
+- **Details:** a skip link, one focus ring for everything, `prefers-reduced-motion` respected, 150 to 200ms transitions on colour only.
+
+**Verified, not assumed**
+
+- Fonts confirmed loaded in the browser; no horizontal overflow at 1280 or 390px.
+- **axe-core, WCAG 2.2 AA plus best-practice rules: 0 violations** on login, signup and a populated dashboard at both widths (`npm run a11y` in `e2e/`). It also measures every tap target on a phone: all are at least 44px. It was checked to fail when broken (a lightened muted colour fails it with exit code 1).
+- The 13-step browser journey still passes, so nothing was broken. Its selectors were moved off styling classes onto the markup's meaning (a definition list, a `data-testid` on the quote price, an `aria-label` on the readings).
+
+**Bugs the redesign's own checks found**
+
+- The chart-colour variables were missing from the CSS: Tailwind v4 leaves a theme token out unless a utility uses it, and these were only used through `var()`. The allocation bar and the chips' keys rendered blank. Fixed with `@theme static`.
+- axe found a `<dl>` whose first child was not a term and a description, and a scrollable table a keyboard could not reach.
+- A focus ring that faded in from the button's own text colour (white on the primary button) for its first 150ms, because `transition-colors` animates `outline-color`.
+
+**Not done:** no dark mode (the tokens make it a small change, but it would need its own validated chart palette); the chart hues below 3:1 against the paper (aqua, yellow, orange, pink) lean on the visible chips, readings and table instead, as the palette's own rules require.
+
 ## Known gaps / deliberate deferrals
 
 - **No deployment setup.** It runs locally only. Deploying needs decisions that are not the code's to make: where MySQL lives, where the two processes run, and how the API keys and `JWT_SECRET` reach them. CORS already reads its allowed origins from `app.cors.allowed-origins`.
-- **No client unit tests.** `tsc`, ESLint, and the browser journey in `e2e/` are the checks on the client.
+- **No client unit tests.** `tsc`, ESLint, the browser journey and the accessibility audit in `e2e/` are the checks on the client.
 - **Only the buy race and the fill/cancel race are tested.** Concurrent sells of the same shares are covered by the same lock but have no test of their own.
 - **The scheduler assumes one running instance.** Two would both try to fill an order; the lock and the pending check keep that safe (the loser does nothing), but they would double the Finnhub calls.
 - **Every symbol with a pending order costs a Finnhub call each time its 15s quote expires**, so many distinct pending symbols can approach the 60/min limit.

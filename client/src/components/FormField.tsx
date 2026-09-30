@@ -11,7 +11,7 @@ interface FormFieldProps {
 export function FormField({ id, label, type, value, autoComplete, onChange, hint }: FormFieldProps) {
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+      <label htmlFor={id} className="block text-sm font-medium text-ink">
         {label}
       </label>
       <input
@@ -21,10 +21,15 @@ export function FormField({ id, label, type, value, autoComplete, onChange, hint
         value={value}
         autoComplete={autoComplete}
         required
+        aria-describedby={hint === undefined ? undefined : `${id}-hint`}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+        className="input mt-1"
       />
-      {hint !== undefined && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+      {hint !== undefined && (
+        <p id={`${id}-hint`} className="mt-1 text-xs text-ink-3">
+          {hint}
+        </p>
+      )}
     </div>
   )
 }
