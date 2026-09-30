@@ -5,6 +5,7 @@ money. Everything runs against real market data, so the numbers are real and the
 
 **What it does**
 
+- A landing page at `/` for visitors who are not signed in (the dashboard, for those who are).
 - Sign up and get a virtual `$100,000`.
 - A dense, dark trading workspace (with a light theme): a candlestick chart with volume, the
   watchlist and an order ticket beside it, and holdings, open orders and history below. The panels

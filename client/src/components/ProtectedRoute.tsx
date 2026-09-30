@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { useAuth } from '../context/useAuth'
+import { LandingPage } from '../pages/LandingPage'
 
 /**
  * Waits for the stored token to be checked before deciding. Without that wait a
@@ -19,6 +20,10 @@ export function ProtectedRoute() {
   }
 
   if (!isAuthenticated) {
+    // A visitor to the front door sees the landing page; any other private URL still goes to login.
+    if (location.pathname === '/') {
+      return <LandingPage />
+    }
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
 

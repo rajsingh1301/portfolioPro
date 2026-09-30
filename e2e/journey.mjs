@@ -305,6 +305,14 @@ await p.goto(`${BASE}/portfolio`, { waitUntil: 'domcontentloaded' })
 await p.waitForURL(`${BASE}/login`)
 ok('no token -> redirected to login')
 
+// 17b. the front door: a visitor sees the landing page at /, and its links reach signup and login
+await p.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' })
+await p.getByRole('heading', { level: 1, name: /Practise trading/ }).waitFor()
+if (p.url() !== `${BASE}/`) throw new Error(`landing redirected to ${p.url()}`)
+await p.getByRole('main').getByRole('link', { name: 'Create an account' }).first().click()
+await p.waitForURL(`${BASE}/signup`)
+ok('logged out -> / is the landing page, and Create an account leads to signup')
+
 // 18. on a phone the panels are tabs and the rail is a bar along the bottom
 const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 const m = await phone.newPage()

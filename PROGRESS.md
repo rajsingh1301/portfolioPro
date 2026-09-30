@@ -570,6 +570,20 @@ The dashboard showed where the portfolio stands, but not how it got there or wha
 
 **Not done:** no comparison against a benchmark such as an index (Finnhub's free plan has none), and no way to choose a custom date range.
 
+## Landing page
+
+`/` shows a landing page to a visitor without a session and the dashboard to a signed-in user;
+every other private URL still redirects to login. It is decided in `ProtectedRoute`, so no route
+or API call changed. The page is a headline, a real screenshot of the terminal, five plain rows
+(orders, portfolio, analysis, risk limits, keyboard), a second screenshot of the portfolio page,
+and a "what it is not" list (simulator, free-tier data at 15 seconds, no slippage, indicators are
+not advice). No invented figures, quotes or logos. The screenshots (dark and light, picked by the
+current theme) are in `client/public/landing/`, taken from a real account; retake them if the UI
+changes.
+
+Checked: axe on the landing page in both themes at both widths (0 violations), no sideways scroll,
+all images loaded, and a journey step for logged-out `/` and the link to signup.
+
 ## Known gaps / deliberate deferrals
 
 - **No deployment setup.** It runs locally only. Deploying needs decisions that are not the code's to make: where MySQL lives, where the two processes run, and how the API keys and `JWT_SECRET` reach them. CORS already reads its allowed origins from `app.cors.allowed-origins`.

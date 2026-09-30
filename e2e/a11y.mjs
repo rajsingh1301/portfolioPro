@@ -68,10 +68,17 @@ for (const theme of ['dark', 'light']) {
     const context = await browser.newContext({ viewport: { width, height }, isMobile: width < 600, hasTouch: width < 600 })
     await context.addInitScript((value) => localStorage.setItem('pp-theme', value), theme)
     const page = await context.newPage()
-    for (const path of ['login', 'signup']) {
+    for (const path of ['', 'login', 'signup']) {
       await page.goto(`${BASE}/${path}`, { waitUntil: 'domcontentloaded' })
       await page.waitForSelector('h1')
-      await audit(page, `${path} (${theme}, ${size})`)
+      if (path === '') {
+        // The landing page: every screenshot loaded, and nothing wider than the screen.
+        await page.locator('img').last().scrollIntoViewIfNeeded()
+        await page.waitForFunction(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0))
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+        if (overflow > 0) throw new Error(`landing (${theme}, ${size}) scrolls sideways by ${overflow}px`)
+      }
+      await audit(page, `${path || 'landing'} (${theme}, ${size})`)
     }
     await context.close()
   }
