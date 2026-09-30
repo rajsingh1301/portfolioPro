@@ -24,6 +24,7 @@ public final class StubFinnhub {
     private final List<String> paths = new CopyOnWriteArrayList<>();
 
     private final Map<String, String> bodyBySymbol = new ConcurrentHashMap<>();
+    private final Map<String, String> bodyByPath = new ConcurrentHashMap<>();
 
     private volatile int status = 200;
     private volatile String body = "{}";
@@ -40,6 +41,11 @@ public final class StubFinnhub {
             stub.paths.add(exchange.getRequestURI().toString());
             String query = exchange.getRequestURI().getQuery();
             String body = stub.body;
+            for (var entry : stub.bodyByPath.entrySet()) {
+                if (exchange.getRequestURI().getPath().contains(entry.getKey())) {
+                    body = entry.getValue();
+                }
+            }
             if (query != null) {
                 for (var entry : stub.bodyBySymbol.entrySet()) {
                     if (query.contains("symbol=" + entry.getKey())) {
@@ -67,6 +73,11 @@ public final class StubFinnhub {
         this.body = body;
     }
 
+    /** Overrides the body for requests whose path contains {@code fragment}, e.g. {@code /stock/metric}. */
+    public void respondForPath(String fragment, String body) {
+        bodyByPath.put(fragment, body);
+    }
+
     /** Overrides the body for one symbol's requests; the status still applies to all. */
     public void respondForSymbol(String symbol, String body) {
         bodyBySymbol.put(symbol, body);
@@ -90,6 +101,7 @@ public final class StubFinnhub {
         requestCount.set(0);
         paths.clear();
         bodyBySymbol.clear();
+        bodyByPath.clear();
         status = 200;
         body = "{}";
     }

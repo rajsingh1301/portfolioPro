@@ -33,6 +33,7 @@ public class FinnhubClient {
 
     public static final String QUOTE_CACHE = "quotes";
     public static final String SEARCH_CACHE = "symbolSearch";
+    public static final String FUNDAMENTALS_CACHE = "fundamentals";
 
     private static final Logger log = LoggerFactory.getLogger(FinnhubClient.class);
     private static final int MAX_SEARCH_RESULTS = 10;
@@ -72,6 +73,34 @@ public class FinnhubClient {
                 decimal(body, "o"),
                 decimal(body, "pc"),
                 epochSeconds(body, "t"));
+    }
+
+    /**
+     * Two calls (profile and metrics), cached together for hours: ratios move with
+     * quarterly filings, not tick by tick, so a symbol costs two calls per TTL.
+     */
+    @Cacheable(FUNDAMENTALS_CACHE)
+    public Fundamentals fundamentals(String symbol) {
+        JsonNode profile = get("/stock/profile2", uri -> uri.queryParam("symbol", symbol));
+        JsonNode metrics = get("/stock/metric", uri -> uri.queryParam("symbol", symbol).queryParam("metric", "all"))
+                .path("metric");
+        BigDecimal marketCapMillions = decimal(profile, "marketCapitalization");
+        if (marketCapMillions == null) {
+            marketCapMillions = decimal(metrics, "marketCapitalization");
+        }
+        BigDecimal pe = decimal(metrics, "peTTM");
+        return new Fundamentals(
+                text(profile, "name"),
+                text(profile, "exchange"),
+                text(profile, "finnhubIndustry"),
+                marketCapMillions == null ? null : marketCapMillions.multiply(BigDecimal.valueOf(1_000_000)),
+                pe != null ? pe : decimal(metrics, "peBasicExclExtraTTM"),
+                decimal(metrics, "epsTTM"),
+                decimal(metrics, "roeTTM"),
+                decimal(metrics, "dividendYieldIndicatedAnnual"),
+                decimal(metrics, "52WeekHigh"),
+                decimal(metrics, "52WeekLow"),
+                decimal(metrics, "beta"));
     }
 
     @Cacheable(SEARCH_CACHE)

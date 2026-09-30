@@ -86,7 +86,7 @@ public class MarketService {
     public List<CandleResponse> candles(String symbol, String rangeLabel) {
         CandleRange range = CandleRange.fromLabel(rangeLabel)
                 .orElseThrow(() -> new NotFoundException("Unknown range: " + rangeLabel));
-        return twelveDataClient.candles(normalizeSymbol(symbol), range).stream()
+        return candleSeries(symbol, range).stream()
                 .map(candle -> new CandleResponse(
                         candle.time().getEpochSecond(),
                         money(candle.open()),
@@ -95,6 +95,11 @@ public class MarketService {
                         money(candle.close()),
                         candle.volume()))
                 .toList();
+    }
+
+    /** The candles as decimals, for callers that compute on them rather than draw them. */
+    public List<Candle> candleSeries(String symbol, CandleRange range) {
+        return twelveDataClient.candles(normalizeSymbol(symbol), range);
     }
 
     private void remember(List<StockSearchResult> results) {

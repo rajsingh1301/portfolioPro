@@ -3,6 +3,8 @@ import type {
   AllocationSlice,
   Candle,
   CandleRange,
+  Fundamentals,
+  Indicators,
   Order,
   PlaceOrderRequest,
   Portfolio,
@@ -69,4 +71,14 @@ export async function addToWatchlist(symbol: string): Promise<WatchlistItem> {
 
 export async function removeFromWatchlist(symbol: string): Promise<void> {
   await api.delete(`/watchlist/${encodeURIComponent(symbol)}`)
+}
+
+export async function fetchIndicators(symbol: string, range: CandleRange): Promise<Indicators> {
+  const { data } = await api.get<Indicators>(`/stocks/${encodeURIComponent(symbol)}/indicators`, { params: { range } })
+  return data
+}
+
+export async function fetchFundamentals(symbol: string): Promise<Fundamentals> {
+  const { data } = await api.get<Fundamentals>(`/stocks/${encodeURIComponent(symbol)}/fundamentals`)
+  return data
 }

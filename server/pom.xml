@@ -74,6 +74,11 @@
 		</dependency>
 
 		<dependency>
+			<groupId>org.ta4j</groupId>
+			<artifactId>ta4j-core</artifactId>
+			<version>0.22.6</version>
+		</dependency>
+		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
 			<version>${jjwt.version}</version>

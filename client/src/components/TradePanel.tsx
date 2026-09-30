@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import { errorMessage } from '../api/client'
 import { fetchQuote, placeOrder, searchStocks } from '../api/trading'
 import { formatUsd } from '../lib/money'
+import { FundamentalsCard } from './FundamentalsCard'
 import { PriceChart } from './PriceChart'
 import type { OrderSide, OrderType, PlaceOrderRequest, Quote, StockSearchResult } from '../types/trading'
 
@@ -193,6 +194,7 @@ export function TradePanel({ onOrderPlaced, watchedSymbols, onToggleWatch, reque
           </div>
           <p className="text-2xl font-semibold text-slate-900">{formatUsd(quote.price)}</p>
 
+          <FundamentalsCard symbol={quote.symbol} />
           <PriceChart symbol={quote.symbol} />
 
           <div className="mt-4 flex flex-wrap items-end gap-3">

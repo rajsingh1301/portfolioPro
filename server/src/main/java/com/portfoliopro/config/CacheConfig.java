@@ -15,9 +15,10 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Three caches with different lifetimes: a quote is only useful while it is fresh, but
- * the set of symbols matching a search barely changes from day to day, and chart history
- * is kept long enough to stay inside the candle provider's small free quota. Slice 6's
+ * Four caches with different lifetimes: a quote is only useful while it is fresh, but
+ * the set of symbols matching a search barely changes from day to day, chart history
+ * is kept long enough to stay inside the candle provider's small free quota, and
+ * fundamentals move with quarterly filings so they are kept for hours. Slice 6's
  * pending-order scheduler reads the quote cache too, so it adds no upstream load.
  */
 @Configuration
@@ -28,12 +29,14 @@ public class CacheConfig {
     public CacheManager cacheManager(
             @Value("${app.cache.quote-ttl-seconds:15}") long quoteTtlSeconds,
             @Value("${app.cache.search-ttl-minutes:60}") long searchTtlMinutes,
-            @Value("${app.cache.candle-ttl-minutes:10}") long candleTtlMinutes) {
+            @Value("${app.cache.candle-ttl-minutes:10}") long candleTtlMinutes,
+            @Value("${app.cache.fundamentals-ttl-hours:6}") long fundamentalsTtlHours) {
         SimpleCacheManager manager = new SimpleCacheManager();
         manager.setCaches(List.of(
                 caffeineCache(FinnhubClient.QUOTE_CACHE, Duration.ofSeconds(quoteTtlSeconds), 500),
                 caffeineCache(FinnhubClient.SEARCH_CACHE, Duration.ofMinutes(searchTtlMinutes), 200),
-                caffeineCache(TwelveDataClient.CANDLE_CACHE, Duration.ofMinutes(candleTtlMinutes), 300)));
+                caffeineCache(TwelveDataClient.CANDLE_CACHE, Duration.ofMinutes(candleTtlMinutes), 300),
+                caffeineCache(FinnhubClient.FUNDAMENTALS_CACHE, Duration.ofHours(fundamentalsTtlHours), 300)));
         return manager;
     }
 

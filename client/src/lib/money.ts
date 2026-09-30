@@ -23,3 +23,17 @@ export function pnlColor(amount: string | undefined): string {
   }
   return parsed > 0 ? 'text-green-700' : 'text-red-600'
 }
+
+/** A large amount in short form, e.g. $4.96T, for display only. */
+export function formatCompactUsd(amount: string): string {
+  const parsed = Number(amount)
+  if (!Number.isFinite(parsed)) {
+    return amount
+  }
+  return parsed.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 2,
+  })
+}

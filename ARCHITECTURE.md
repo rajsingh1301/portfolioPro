@@ -22,7 +22,7 @@ is still to do, see [PROGRESS.md](PROGRESS.md).
 | Auth | Spring Security + JWT, BCrypt | Stateless; no server-side session store |
 | Market data | **Finnhub** (quotes, search, fundamentals) + **Twelve Data** (candles) | Finnhub's candle endpoint is paid-only, so chart history comes from Twelve Data's free plan |
 | Currency | **USD**, `$100,000` starting balance | Finnhub's free tier is US equities; see §7 |
-| Indicators | ta4j | SMA/EMA/RSI/MACD/Bollinger without hand-rolling maths |
+| Indicators | ta4j (pinned to 0.22.6, the last release that runs on Java 21) | SMA/EMA/RSI/MACD/Bollinger without hand-rolling maths |
 | Price cache | Spring Cache + Caffeine | Finnhub rate limit is ~60 calls/min; the cache is what makes the app survive it |
 | Architecture | 3-tier modular monolith | One deployable, module boundaries kept clean inside it |
 
@@ -216,8 +216,8 @@ Each slice is built and verified end-to-end (backend + UI) before the next begin
 4. **Portfolio** — holdings, unrealized/realized P&L, dashboard
 5. **Charts** — candles endpoint + Lightweight Charts
 6. **Pending orders** — limit, stop-loss, the scheduler
-7. **Watchlist** ← *current*
-8. **Analysis** — ta4j indicators, fundamentals card
+7. **Watchlist**
+8. **Analysis** — ta4j indicators, fundamentals card ← *current*
 9. **Risk settings UI**
 
 Slice 3 is the hard one; slices 1–2 exist mainly to make it testable.

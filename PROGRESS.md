@@ -20,7 +20,7 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 | 5 | Charts | ✅ Done (volume bars deferred) |
 | 6 | Pending orders (limit, stop-loss) | ✅ Done |
 | 7 | Watchlist | ✅ Done |
-| 8 | Analysis (indicators, fundamentals) | ⬜ Not started |
+| 8 | Analysis (indicators, fundamentals) | ✅ Done |
 | 9 | Risk settings UI | ⬜ Not started |
 
 Legend: ✅ done · 🟡 partial · ⬜ not started
@@ -338,6 +338,42 @@ removing the "still pending" guard fails the deterministic test and the race tes
 - The add locks the user row first, as every other write does, so the size check and the insert cannot be split by a concurrent add.
 - **`MarketService.quote()` lost its `@Transactional`.** It never touched the database, and under parallel fetches each call would have held a pooled connection for the length of a Finnhub call.
 - No foreign key from `watchlist.symbol` to `stocks`, for the same reason orders have none.
+
+## Slice 8 — Analysis ✅
+
+**Goal:** a user viewing a stock can overlay technical indicators on its chart, read what
+they say in plain words, and see the company's headline ratios.
+
+**Backend**
+
+- [x] `GET /api/stocks/{symbol}/indicators?range=`: SMA 20 and 50, EMA 20, RSI 14, MACD (12, 26, 9) with signal and histogram, Bollinger Bands (20, 2), plus `readings` and a disclaimer. Prices to four places, RSI to two, all strings
+- [x] Each series starts only where its window is full: a 50-bar average has no value for the first 49 bars, so an average of three bars is never passed off as one of fifty
+- [x] Daily ranges (`1M`, `6M`, `1Y`) are computed on the one-year daily series, then cut back to the range asked for, so a month still has warmed-up averages. That series is the chart's own cached candles, so it costs no extra provider call. Intraday and `5Y` compute on their own candles
+- [x] `Readings`: plain-words descriptions ("RSI is 74.3, in the overbought zone", "MACD crossed below its signal line", "Price is within the bands"). They describe and never advise (rule 8)
+- [x] `GET /api/stocks/{symbol}/fundamentals`: name, exchange, industry, market cap (whole dollars), P/E, EPS, ROE %, dividend yield %, 52-week range, beta. Anything unreported is absent, not zero. Cached six hours (two Finnhub calls per symbol per TTL)
+- [x] Fundamentals fill in `stocks.exchange` and `stocks.sector` the first time a profile is seen, which search never learns. Only gaps are filled; known values are never overwritten
+
+**Frontend**
+
+- [x] Indicator toggles on the chart: SMA 20 / 50, EMA 20 and Bollinger overlay the candles; RSI (with 70 and 30 guides) and MACD (line, signal, histogram) get panes of their own
+- [x] Indicators are only requested once one is switched on, since the candle provider's daily quota is small
+- [x] Readings list with the disclaimer, and a fundamentals block beside the quote
+
+**Tests:** 103 in total (26 new). The maths is checked against **independent implementations of the textbook formulas** written in the test, not ta4j called a second way: SMA and Bollinger to `1e-9` and `1e-6`, EMA, RSI (Wilder) and MACD once past their seed. Checked to fail when broken: a sample instead of population deviation (Bollinger test fails), an RSI period of 13 (RSI test fails), advice wording in a label (3 tests fail), no trimming to the range and a month computed on its own candles (each fails the year-series test).
+
+**Verified** in a browser against the real Twelve Data and Finnhub APIs, on real AAPL: all six indicators on at once (15 canvases: candles plus two panes), readings that read sensibly, fundamentals matching Finnhub's own numbers (market cap `$4.81T`, P/E `37.59`, ROE `137.18%`, 52-week `$243.42 – $345.34`), a range switch, and toggling a pane off and on.
+
+**Bugs and surprises found while building it**
+
+- **ta4j 0.25 needs Java 25.** Its class files are version 69; this project targets Java 21 and runs on 24, so it would not load. Releases from 0.22.7 up are all Java 25. **The newest that runs on Java 21 is `0.22.6`, which is what `pom.xml` pins.** Moving to a newer ta4j means moving the project to Java 25.
+- **ta4j's EMA is undefined until the index reaches its period**, one bar later than the textbook convention (and the MACD line inherits it). Series here start where ta4j's do: a bar late, never a bar early.
+- `path` is a zsh variable tied to `PATH`; using it as a loop variable in a shell command wiped the command search path. Not in the code, but it cost a confusing failure.
+
+**Decisions made building it**
+
+- **Fundamentals are cached, not stored.** The `stock_fundamentals` table in ARCHITECTURE.md is not created, for the same reason `price_candles` is not: nothing needs more than the cache holds yet.
+- `1D` and `1W` indicators are computed on 80 and 70 candles, enough for every window here but thin for a 50-bar average.
+- The 20/50 average crossing is reported only if it happened within the last five bars.
 
 ## Decisions made
 

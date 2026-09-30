@@ -108,3 +108,47 @@ export interface WatchlistItem {
   change?: string
   percentChange?: string
 }
+
+/** Mirrors com.portfoliopro.analysis.dto.IndicatorPoint. */
+export interface IndicatorPoint {
+  time: number
+  value: string
+}
+
+export interface Reading {
+  indicator: string
+  label: string
+}
+
+/** Mirrors com.portfoliopro.analysis.dto.IndicatorResponse. */
+export interface Indicators {
+  symbol: string
+  range: CandleRange
+  sma20: IndicatorPoint[]
+  sma50: IndicatorPoint[]
+  ema20: IndicatorPoint[]
+  rsi14: IndicatorPoint[]
+  macd: { line: IndicatorPoint[]; signal: IndicatorPoint[]; histogram: IndicatorPoint[] }
+  bollinger: { upper: IndicatorPoint[]; middle: IndicatorPoint[]; lower: IndicatorPoint[] }
+  readings: Reading[]
+  disclaimer: string
+}
+
+/** Mirrors com.portfoliopro.analysis.dto.FundamentalsResponse. Anything unreported is absent. */
+export interface Fundamentals {
+  symbol: string
+  name?: string
+  exchange?: string
+  industry?: string
+  /** Whole US dollars. */
+  marketCap?: string
+  peRatio?: string
+  eps?: string
+  /** A percentage. */
+  roe?: string
+  /** A percentage. */
+  dividendYield?: string
+  week52High?: string
+  week52Low?: string
+  beta?: string
+}
