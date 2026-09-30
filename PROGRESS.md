@@ -25,14 +25,14 @@ For the design and the reasoning behind it, see [ARCHITECTURE.md](ARCHITECTURE.m
 
 Legend: ✅ done · 🟡 partial · ⬜ not started
 
-**120 server tests** pass against a real MySQL 8.4 (Testcontainers), and a 13-step browser journey in `e2e/` walks the whole app on the real stack. Every safety property (row lock, fill/cancel race, ledger reconciliation, parallel fetching, advice-free wording, the calculators) was checked to fail when deliberately broken.
+**141 server tests** pass against a real MySQL 8.4 (Testcontainers), and a 14-step browser journey in `e2e/` walks the whole app on the real stack. Every safety property (row lock, fill/cancel race, ledger reconciliation, parallel fetching, advice-free wording, the calculators) was checked to fail when deliberately broken.
 
 ---
 
 ## Running the tests
 
 ```bash
-cd server && ./mvnw test          # 120 tests, ~1 min, needs Docker running
+cd server && ./mvnw test          # 141 tests, ~1 min, needs Docker running
 cd client && npx tsc -b && npx eslint .    # type-check and lint
 cd e2e && npm run journey         # the whole app in a browser; needs the app running
 ```
@@ -494,6 +494,33 @@ The first UI was a single 896px column of eight identical white `rounded-xl shad
 - A focus ring that faded in from the button's own text colour (white on the primary button) for its first 150ms, because `transition-colors` animates `outline-color`.
 
 **Not done:** no dark mode (the tokens make it a small change, but it would need its own validated chart palette); the chart hues below 3:1 against the paper (aqua, yellow, orange, pink) lean on the visible chips, readings and table instead, as the palette's own rules require.
+
+## Performance dashboard
+
+The dashboard showed where the portfolio stands, but not how it got there or what made it move. It now has a Performance section under the masthead: the value over time, what changed, the best and worst day, and each position's contribution.
+
+**Backend:** `GET /api/portfolio/performance?range=1M|3M|6M|1Y` (default `3M`).
+
+- **Rebuilt, never stored.** Each day's value is cash (from the ledger) plus shares held (from the trades) at that day's close. Nothing is kept per day, so history cannot disagree with the ledger and the trades it comes from. Weekends and holidays are simply absent when a symbol has real history.
+- **Today is live.** The last point is the live portfolio total, so it is exactly the figure at the top of the page.
+- **It costs almost no provider quota.** Closes come from the year of daily candles the chart already caches. Only the eight most-traded symbols get history (Twelve Data allows about 8 calls a minute); the rest, and any symbol whose history fails, are valued at their last trade price and named in `estimatedSymbols`. A missing key or a rate limit degrades the curve instead of breaking it. A symbol with no history gets a point for every calendar day, so the estimate draws flat rather than as a slant across days nothing happened.
+- The range is clamped to the day the account opened. Best and worst day are absent unless something actually moved that way. Each position's result is realized plus unrealized, best first, and includes fully closed positions.
+- **It lives in `trading`, not `portfolio`.** It is built from trades, and nothing may depend on `trading`. It calls `portfolio` (ledger, holdings, live totals) and `market` (candles), which `trading` may.
+
+**Frontend:** `PerformanceSection`, in the same two columns as the sections below it.
+
+- A single line over a faint wash with a dotted line at the start value (one series, so no legend), a pointer readout of the day, the value and the change since the start, the axis in dollars, and a table twin. Changing range or placing a trade keeps the old figures, dimmed.
+- **Result by position:** bars around a zero line, gains right and losses left, every value written with its sign, so direction never rests on colour. The total closes the list.
+- A brand-new account gets one plain sentence instead of a one-point chart.
+- The chart theme (colours read from the CSS tokens, shared options) moved to `lib/chartTheme.ts` and is used by both charts.
+
+**Tests:** 21 new. The calculator's are sums worked out by hand (a buy, a partial sale, a closed position, a window starting after the trades, a Saturday trade, two symbols, `3 x 0.1` being exactly `0.3`). The API's are built the way history is made for real, with orders placed through the API and the dates then moved back with SQL. **Each was checked to fail when broken:** counting sales as purchases, the next close instead of the last, no trade-price fallback, today taken from history instead of live, the eight-symbol cap, positions sorted the wrong way, and closed positions dropped.
+
+**Verified** against real Finnhub and Twelve Data on an account with backdated trades: weekends absent, the curve steps when a position opens, best and worst days match the tiles, and the last point equals the masthead total exactly. axe-core: 0 violations on an account that has a real curve, the table open and bars on screen, at both widths; every tap target in the section is at least 44px.
+
+**A gap the tests found:** with no price history the first version had points only on the days a trade happened, and the chart drew a slanting line between them across days where the estimated value does not move. Fixed as above.
+
+**Not done:** no comparison against a benchmark such as an index (Finnhub's free plan has none), and no way to choose a custom date range.
 
 ## Known gaps / deliberate deferrals
 

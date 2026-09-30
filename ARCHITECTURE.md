@@ -186,6 +186,7 @@ login.
 | Trading | GET | `/api/trades` |
 | Portfolio | GET | `/api/portfolio` |
 | Portfolio | GET | `/api/portfolio/allocation` |
+| Portfolio | GET | `/api/portfolio/performance?range=` (built from trades, so it lives in `trading`) |
 | Watchlist | GET / POST | `/api/watchlist` |
 | Watchlist | DELETE | `/api/watchlist/{symbol}` |
 | Risk | GET / PUT | `/api/risk/settings` |

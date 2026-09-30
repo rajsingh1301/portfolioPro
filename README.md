@@ -10,7 +10,7 @@ money. Everything runs against real market data, so the numbers are real and the
   MACD, Bollinger Bands) with plain-words readings, and company fundamentals.
 - Trade at market, or place limit and stop-loss orders that a scheduler fills when the price
   is reached. Optionally attach a stop-loss to a buy.
-- See holdings, unrealized and realized P&L, and allocation. Follow stocks on a watchlist.
+- See holdings, unrealized and realized P&L, and allocation. See how the portfolio's value has moved over 1 month to a year, its best and worst day, and what each position has made or lost. Follow stocks on a watchlist.
 - Set your own risk limits (max position size, max order value, default stop-loss).
 
 Indicator readings describe and never advise, and indicators are frequently wrong.
@@ -62,7 +62,7 @@ cd client && npm install && npm run dev # UI on :5173
 ## Tests
 
 ```bash
-cd server && ./mvnw test                # 120 tests, ~1 min, needs Docker running
+cd server && ./mvnw test                # 141 tests, ~1 min, needs Docker running
 cd client && npx tsc -b && npx eslint . # type-check and lint (there are no client unit tests yet)
 ```
 
