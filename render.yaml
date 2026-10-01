@@ -1,0 +1,37 @@
+# Render Blueprint. MySQL is NOT on Render (it has no managed MySQL): create one at Aiven or
+# TiDB Cloud and paste its values into the three DB_* variables below in the dashboard.
+services:
+  - type: web
+    name: portfoliopro-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DB_URL          # jdbc:mysql://HOST:PORT/DB?sslMode=REQUIRED
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: TWELVEDATA_API_KEY
+        sync: false
+      - key: APP_CORS_ALLOWED_ORIGINS   # the static site's URL, e.g. https://portfoliopro.onrender.com
+        sync: false
+
+  - type: web
+    name: portfoliopro
+    runtime: static
+    rootDir: client
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL          # https://portfoliopro-api.onrender.com/api
+        sync: false
+    routes:
+      - type: rewrite                   # React Router: every path serves index.html
+        source: /*
+        destination: /index.html
